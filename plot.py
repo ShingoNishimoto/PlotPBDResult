@@ -1,3 +1,4 @@
+from asyncio import constants
 from matplotlib.axis import YAxis
 import pandas as pd
 import plotly as py
@@ -37,6 +38,15 @@ data = pd.read_csv(log_path, header=None)
 data_col = ['x_m_t', 'y_m_t', 'z_m_t', 't_m_t', 'vx_m_t', 'vy_m_t', 'vz_m_t', 'x_t_t', 'y_t_t', 'z_t_t', 't_t_t', 'vx_t_t', 'vy_t_t', 'vz_t_t', 'x_m_e', 'y_m_e', 'z_m_e', 't_m_e', 'vx_m_e', 'vy_m_e', 'vz_m_e', 'ar_m_e', 'at_m_e', 'an_m_e','x_t_e', 'y_t_e', 'z_t_e', 't_t_e', 'vx_t_e', 'vy_t_e', 'vz_t_e', 'ar_t_e', 'at_t_e', 'an_t_e', 'N1_m_t', 'N2_m_t', 'N3_m_t', 'N4_m_t', 'N5_m_t', 'N6_m_t', 'N7_m_t', 'N8_m_t', 'N9_m_t', 'N10_m_t', 'N11_m_t', 'N12_m_t', 'N1_m_e', 'N2_m_e', 'N3_m_e', 'N4_m_e', 'N5_m_e', 'N6_m_e', 'N7_m_e', 'N8_m_e', 'N9_m_e', 'N10_m_e', 'N11_m_e', 'N12_m_e', 'N1_t_t', 'N2_t_t', 'N3_t_t', 'N4_t_t', 'N5_t_t', 'N6_t_t', 'N7_t_t', 'N8_t_t', 'N9_t_t', 'N10_t_t', 'N11_t_t', 'N12_t_t', 'N1_t_e', 'N2_t_e', 'N3_t_e', 'N4_t_e', 'N5_t_e', 'N6_t_e', 'N7_t_e', 'N8_t_e', 'N9_t_e', 'N10_t_e', 'N11_t_e', 'N12_t_e', 'Mx_m', 'My_m', 'Mz_m', 'Mt_m', 'Mvx_m', 'Mvy_m', 'Mvz_m', 'Mar_m', 'Mat_m', 'Man_m', 'MNm1', 'MNm2', 'MNm3', 'MNm4', 'MNm5', 'MNm6', 'MNm7', 'MNm8', 'MNm9', 'MNm10', 'MNm11', 'MNm12', 'Mx_t', 'My_t', 'Mz_t', 'Mt_t', 'Mvx_t', 'Mvy_t', 'Mvz_t', 'Mar_t', 'Mat_t', 'Man_t', 'MNt1', 'MNt2', 'MNt3', 'MNt4', 'MNt5', 'MNt6', 'MNt7', 'MNt8', 'MNt9', 'MNt10', 'MNt11', 'MNt12', 'sat_num_main', 'sat_num_target','sat_num_common', 'id_ch1_m', 'id_ch2_m', 'id_ch3_m', 'id_ch4_m', 'id_ch5_m', 'id_ch6_m', 'id_ch7_m', 'id_ch8_m', 'id_ch9_m', 'id_ch10_m', 'id_ch11_m', 'id_ch12_m', 'id_ch1_t', 'id_ch2_t', 'id_ch3_t', 'id_ch4_t', 'id_ch5_t', 'id_ch6_t', 'id_ch7_t', 'id_ch8_t', 'id_ch9_t', 'id_ch10_t', 'id_ch11_t', 'id_ch12_t','']
 data = data.set_axis(data_col, axis=1)
 
+def fig_init(data, names, unit):
+    fig = make_subplots(rows=len(names), cols=1, shared_xaxes='rows') # subplot_titles=tuple(base_names)
+    fig.update_layout(plot_bgcolor="white")
+    for i, name in enumerate(names):
+        fig.update_yaxes(title_text= name + "[" + unit + "]", row=(i+1))
+        fig.update_xaxes(linecolor='black', gridcolor='silver', mirror=True, range=(data.index[0], data.index[-1]), row=(i+1))
+    fig.update_xaxes(title_text="t[s]", row=len(names))
+    fig.update_yaxes(linecolor='black', mirror=True)
+    return fig
 
 def calc_relinfo(x_v_a, t_e, data):
     """
@@ -94,7 +104,7 @@ def plot_precision(x_v, m_t, data):
         suffix = 'target'
     precision = pd.DataFrame()
     # fig = go.Figure()
-    fig = make_subplots(rows=3, cols=1, subplot_titles=tuple(base_names))
+    fig = fig_init(data=data, names=base_names, unit=unit)
     data_offset = 1000 # s
     for i, name in enumerate(base_names):
         est_name = name + '_' + m_t + '_e'
@@ -106,9 +116,7 @@ def plot_precision(x_v, m_t, data):
         fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data[M_name])*scale_param, name="1 sigma", legendgroup=str(i), line=dict(width=1, color='black'), showlegend=True), row=(i+1), col=1)
         fig.add_trace(go.Scatter(x=data.index, y=-np.sqrt(data[M_name])*scale_param, legendgroup=str(i), line=dict(width=1, color='black'), showlegend=False), row=(i+1), col=1)
         # fig.update_layout(yaxis=dict(title_text=r"$\delta$" + name +"[" + unit + "]"))
-    fig.update_layout(plot_bgcolor="#f5f5f5", paper_bgcolor="white", legend_tracegroupgap = 180, font=dict(size=15)) # lightgray
-    fig.update_xaxes(title_text="t[s]")
-    fig.update_yaxes(title_text="residual[" + unit + "]")
+    # fig.update_layout(plot_bgcolor="#f5f5f5", paper_bgcolor="white", legend_tracegroupgap = 180, font=dict(size=15)) # lightgray
     filename = x_v + '_precision_' + suffix + '.html'
     fig.write_html(output_path + filename)
 
@@ -130,14 +138,18 @@ def plot_differential_precision(precision_data, x_v):
         output_name = 'relative_velocity'
     precision_data *= scale_param
     names = ['d'+base_name for base_name in base_names]
-    fig = make_subplots(rows=3, cols=1, subplot_titles=(names))
+    fig = fig_init(data, names, unit)
     data_offset = 1000
     for i in range(len(base_names)):
         RMS = np.sqrt(np.mean(precision_data.iloc[data_offset:,i]**2))
         fig.add_trace(go.Scatter(mode='markers', x=precision_data.index, y=precision_data.iloc[:,i], name='RMS:'+'{:.3f}'.format(RMS)+'['+unit+']', legendgroup=str(i+1), marker=dict(size=2, color='red')), row=(i+1), col=1)
-    fig.update_layout(plot_bgcolor="#f5f5f5", paper_bgcolor="white", showlegend=True, legend_tracegroupgap = 200, font=dict(size=15)) # lightgray
-    fig.update_xaxes(title_text="t[s]")
-    fig.update_yaxes(title_text="residual["+unit+"]")
+        M_name_m = 'M' + base_names[i] + '_m'
+        M_name_t = 'M' + base_names[i] + '_t'
+        dM_name = 'Md' + base_names[i]
+        data[dM_name] = np.sqrt(data[M_name_m] + data[M_name_t])
+        fig.add_trace(go.Scatter(x=data.index, y= np.sqrt(data[dM_name])*scale_param, name="1 sigma", legendgroup=str(i), line=dict(width=1, color='black'), showlegend=True), row=(i+1), col=1)
+        fig.add_trace(go.Scatter(x=data.index, y=-np.sqrt(data[dM_name])*scale_param, legendgroup=str(i), line=dict(width=1, color='black'), showlegend=False), row=(i+1), col=1)
+    # fig.update_layout(plot_bgcolor="#f5f5f5", paper_bgcolor="white", showlegend=True, legend_tracegroupgap = 200, font=dict(size=15)) # lightgray
     fig.write_html(output_path + output_name +"_precision.html")
 
 pbd_precision = calc_baseline_precision(data)
@@ -147,32 +159,42 @@ v_rel_est  = calc_relinfo('v', 'e', data)
 dv_precision = v_rel_est - v_rel_true
 plot_differential_precision(dv_precision, 'v')
 
+def plot_a(data, m_t):
+    a_base_names = ['ar', 'at', 'an']
+    a_names = [base_name+'_'+m_t+'_e' for base_name in a_base_names]
+    fig = make_subplots(rows=3, cols=1, subplot_titles=tuple(a_names))
+    fig = fig_init(data, a_base_names, unit='nm/s2')
+    for i in range(len(a_base_names)):
+        fig.add_trace(go.Scatter(mode='markers', x=data.index, y=data[a_names[i]], name=a_names[i], marker=dict(size=2, color='red')), row=i+1, col=1)
+    # fig.update_xaxes(title_text="t[s]")
+    # fig.update_yaxes(title_text="acc[nm/s2]")
+    fig.write_html(output_path + "a_emp_est_"+m_t+".html")
+
+plot_a(data, 'm')
+plot_a(data, 't')
 
 fig = go.Figure()
-fig.add_trace(go.Scatter3d(x=data['x_m_t'], y=data['y_m_t'], z=data['z_m_t'], name='main', mode='lines', line=dict(width=2, color='red')))
-fig.add_trace(go.Scatter3d(x=data['x_t_t'], y=data['y_t_t'], z=data['z_t_t'], name='target', mode='lines', line=dict(width=2, color='blue')))
-# fig.update_xaxes(title_text="t[s]")
-# fig.update_yaxes(title_text="residual[m]")
+fig.add_trace(go.Scatter3d(x=data['x_m_t'], y=data['y_m_t'], z=data['z_m_t'], name='main', mode='lines', line=dict(width=2, color='red'))) # , showscale=False
+fig.add_trace(go.Scatter3d(x=data['x_t_t'], y=data['y_t_t'], z=data['z_t_t'], name='target', mode='lines', line=dict(width=2, color='blue'))) # , showscale=False
+# fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
 fig.write_html(output_path + "orbit_3d.html")
 
 baseline = calc_relinfo('x', 't', data)
 fig = go.Figure()
-fig.add_trace(go.Scatter3d(x=baseline['x'], y=baseline['y'], z=baseline['z'], name='relative orbit', mode='lines', line=dict(width=2, color='red')))
-# fig.update_xaxes(title_text="t[s]")
-# fig.update_yaxes(title_text="residual[m]")
+fig.add_trace(go.Scatter3d(x=baseline['x'], y=baseline['y'], z=baseline['z'], name='relative orbit', mode='lines', line=dict(width=2, color='red'))) #, showscale=False
+# fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
 fig.write_html(output_path + "relative_orbit_3d.html")
 
 def cdt_plot(data, output_name):
     names = ['cdt_main', 'cdt_target']
     suffix = ['m', 't']
     fig = make_subplots(rows=2, cols=1, subplot_titles=(tuple(names)))
+    fig = fig_init(data, names, unit='m')
     for i in range(len(names)):
         data_true_key = 't_' + suffix[i] + '_t'
         data_est_key  = 't_' + suffix[i] + '_e'
         fig.add_trace(go.Scatter(x=data.index, y=data[data_true_key], name=names[i]+'_t', line=dict(width=2, color='black')), row=i+1, col=1)
         fig.add_trace(go.Scatter(x=data.index, y=data[data_est_key], name=names[i]+'_e', line=dict(width=2, color='red')), row=i+1, col=1)
-    fig.update_xaxes(title_text="t[s]")
-    fig.update_yaxes(title_text="cdt[m]")
     fig.write_html(output_name +".html")
 
 cdt_plot(data, output_path+'cdt')
@@ -182,6 +204,7 @@ data_sparse = data[data.index%10==9]
 t_names = ['cdt_main', 'cdt_target']
 suffix  = ['m', 't']
 fig = make_subplots(rows=2, cols=1, subplot_titles=tuple(t_names))
+fig = fig_init(data, t_names, unit='m')
 for i in range(len(t_names)):
     true_name_key = 't_' + suffix[i] + '_t'
     est_name_key  = 't_' + suffix[i] + '_e'
@@ -189,8 +212,6 @@ for i in range(len(t_names)):
     M_name = 'Mt_'+suffix[i]
     fig.add_trace(go.Scatter(x=data_sparse.index, y=np.sqrt(data_sparse[M_name]), line=dict(width=1, color='black'), name='1 sigma'), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=data_sparse.index, y=-np.sqrt(data_sparse[M_name]), line=dict(width=1, color='black'), showlegend=False), row=i+1, col=1)
-fig.update_xaxes(title_text="t[s]")
-fig.update_yaxes(title_text="residual[m]")
 fig.write_html(output_path + "cdt_sparse_precision.html")
 
 
@@ -202,8 +223,8 @@ for i in range(12):
     precision[i+1] = data[e_col_name] - data[t_col_name]
     fig.add_trace(go.Scatter(x=data.index, y=precision[i+1], name='N'+str(i+1)))
 fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$bias[m]$")
-fig.write_html(output_path + "bias_precision_main.html")
+fig.update_yaxes(title_text="$N[cycle]$")
+fig.write_html(output_path + "N_precision_main.html")
 # fig.show()
 
 fig = go.Figure()
@@ -211,8 +232,8 @@ for i in range(12):
     t_col_name = 'N' + str(i+1) +'_m_t'
     fig.add_trace(go.Scatter(x=data.index, y=data[t_col_name], name='N'+str(i+1)))
 fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$bias[m]$")
-fig.write_html(output_path + "bias_true_main.html")
+fig.update_yaxes(title_text="$N[cycle]$")
+fig.write_html(output_path + "N_true_main.html")
 # fig.show()
 
 fig = go.Figure()
@@ -220,8 +241,8 @@ for i in range(12):
     e_col_name = 'N' + str(i+1) +'_m_e'
     fig.add_trace(go.Scatter(x=data.index, y=data[e_col_name], name='N'+str(i+1)))
 fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$bias[m]$")
-fig.write_html(output_path + "bias_est_main.html")
+fig.update_yaxes(title_text="$N[cycle]$")
+fig.write_html(output_path + "N_est_main.html")
 # fig.show()
 
 fig = go.Figure()
@@ -229,22 +250,9 @@ for i in range(12):
     e_col_name = 'N' + str(i+1) +'_t_e'
     fig.add_trace(go.Scatter(x=data.index, y=data[e_col_name], name='N'+str(i+1)))
 fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$bias[m]$")
-fig.write_html(output_path + "bias_est_target.html")
+fig.update_yaxes(title_text="$N[cycle]$")
+fig.write_html(output_path + "N_est_target.html")
 # fig.show()
-
-def plot_a(data, m_t):
-    a_base_names = ['ar', 'at', 'an']
-    a_names = [base_name+'_'+m_t+'_e' for base_name in a_base_names]
-    fig = make_subplots(rows=3, cols=1, subplot_titles=tuple(a_names))
-    for i in range(len(a_base_names)):
-        fig.add_trace(go.Scatter(mode='markers', x=data.index, y=data[a_names[i]], name=a_names[i], marker=dict(size=2, color='red')), row=i+1, col=1)
-    fig.update_xaxes(title_text="t[s]")
-    fig.update_yaxes(title_text="acc[nm/s2]")
-    fig.write_html(output_path + "a_emp_est_"+m_t+".html")
-
-plot_a(data, 'm')
-plot_a(data, 't')
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=data.index, y=data['Mt_m'], name='Mt_m'))
