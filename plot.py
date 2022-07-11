@@ -40,9 +40,9 @@ data = data.set_axis(data_col, axis=1)
 
 def fig_init(data, names, unit):
     fig = make_subplots(rows=len(names), cols=1, shared_xaxes='rows') # subplot_titles=tuple(base_names)
-    fig.update_layout(plot_bgcolor="white")
+    fig.update_layout(plot_bgcolor="white", font=dict(size=17))
     for i, name in enumerate(names):
-        fig.update_yaxes(title_text= name + "[" + unit + "]", row=(i+1))
+        fig.update_yaxes(title=dict(text= name + "[" + unit + "]"), row=(i+1))
         fig.update_xaxes(linecolor='black', gridcolor='silver', mirror=True, range=(data.index[0], data.index[-1]), row=(i+1))
     fig.update_xaxes(title_text="t[s]", row=len(names))
     fig.update_yaxes(linecolor='black', mirror=True)
@@ -177,12 +177,31 @@ fig = go.Figure()
 fig.add_trace(go.Scatter3d(x=data['x_m_t'], y=data['y_m_t'], z=data['z_m_t'], name='main', mode='lines', line=dict(width=2, color='red'))) # , showscale=False
 fig.add_trace(go.Scatter3d(x=data['x_t_t'], y=data['y_t_t'], z=data['z_t_t'], name='target', mode='lines', line=dict(width=2, color='blue'))) # , showscale=False
 # fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
+fig.update_layout(scene=dict(aspectmode='data'))
 fig.write_html(output_path + "orbit_3d.html")
+# なんか座標系おかしくないか？
 
 baseline = calc_relinfo('x', 't', data)
 fig = go.Figure()
 fig.add_trace(go.Scatter3d(x=baseline['x'], y=baseline['y'], z=baseline['z'], name='relative orbit', mode='lines', line=dict(width=2, color='red'))) #, showscale=False
 # fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
+fig.update_layout(scene=dict(aspectmode='data'))
+fig.write_html(output_path + "relative_orbit_3d.html")
+
+# VLLHに直すと楕円になるのかも？
+def DCM_from_eci_to_lvlh(base_pos_vel):
+    r_i, v_i = base_pos_vel
+    z_lvlh_i = - r_i/np.linalg.norm(r_i)
+    x_lvlh_i = v_i/np.linalg.norm(v_i)
+    y_lvlh_i = np.cross(z_lvlh_i, x_lvlh_i)
+    DCM_from_eci_to_lvlh = np.array([x_lvlh_i, y_lvlh_i, z_lvlh_i])
+    return DCM_from_eci_to_lvlh
+
+# 時系列データに対して座標変換するの全て変換行列変わるしだるいな．．．最初からLVLHで出したい．．．
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=baseline['x'], y=baseline['y'], z=baseline['z'], name='relative orbit', mode='lines', line=dict(width=2, color='red'))) #, showscale=False
+# fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
+fig.update_layout(scene=dict(aspectmode='data'))
 fig.write_html(output_path + "relative_orbit_3d.html")
 
 def cdt_plot(data, output_name):
@@ -255,8 +274,8 @@ fig.write_html(output_path + "N_est_target.html")
 # fig.show()
 
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=data.index, y=data['Mt_m'], name='Mt_m'))
-fig.add_trace(go.Scatter(x=data.index, y=data['Mt_t'], name='Mt_t'))
+fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data['Mt_m']), name='Mt_m'))
+fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data['Mt_t']), name='Mt_t'))
 fig.update_xaxes(title_text="$t[s]$")
 fig.update_yaxes(title_text="$M[m]$")
 fig.write_html(output_path + "Mt.html")
