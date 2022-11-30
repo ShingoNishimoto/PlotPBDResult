@@ -28,10 +28,11 @@ s2e_csv_log_path = (
     s2e_log_dir + "/" + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]
 )
 # ここは適宜修正する．
-copy_base_dir = "/mnt/g/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
-# copy_base_dir = 'G:/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/'
+# copy_base_dir = "/mnt/g/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
+copy_base_dir = "G:/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
 sim_config_path = s2e_dir + "CMakeBuilds/Debug/readme_new.txt"
 log_path = s2e_dir + "CMakeBuilds/Debug/result_new.csv"
+pcc_log_path = s2e_dir + "CMakeBuilds/Debug/phase_center_correction.csv"
 
 # コピーしたログファイルからグラフ描くとき===========
 # log_base = copy_base_dir + '20220828_224856_ukaren_AKF' # ここを修正
@@ -265,6 +266,7 @@ col_gnss_dir = [
     "ele11_t",
     "ele12_t",
 ]
+col_pco = ["pco_x_m", "pco_y_m", "pco_z_m", "pco_x_t", "pco_y_t", "pco_z_t"]
 data_col = (
     col_true_info
     + col_est_info
@@ -399,6 +401,7 @@ data_col = (
         "an_dist_t",
     ]
     + col_gnss_dir
+    + col_pco
     + [""]
 )
 acc_col = [
@@ -984,6 +987,17 @@ fig.add_trace(
         line=dict(width=2, color="red"),
     )
 )  # , showscale=False
+# sc1
+fig.add_trace(
+    go.Scatter3d(
+        x=[0],
+        y=[0],
+        z=[0],
+        name="relative orbit",
+        mode="markers",
+        marker=dict(size=2, color="black"),
+    )
+)
 # fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
 fig.update_layout(scene=dict(aspectmode="data"))
 fig_output(fig, output_path + "relative_orbit_3d.html")
@@ -994,12 +1008,16 @@ def DCM_from_eci_to_lvlh(base_pos_vel):
     z_lvlh_i = -r_i / np.linalg.norm(r_i)
     x_lvlh_i = v_i / np.linalg.norm(v_i)
     y_lvlh_i = np.cross(z_lvlh_i, x_lvlh_i)
+    x_lvlh_i = np.cross(y_lvlh_i, z_lvlh_i)
     DCM_from_eci_to_lvlh = np.array([x_lvlh_i, y_lvlh_i, z_lvlh_i])
     return DCM_from_eci_to_lvlh
 
 
 # 時系列データに対して座標変換するの全て変換行列変わるしだるいな．．．最初からLVLHで出したい．．．
 fig = go.Figure()
+for i in range(len(baseline)):
+    DCM = DCM_from_eci_to_lvlh((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
+    baseline.iloc[i, :] = np.dot(DCM, baseline.iloc[i, :])
 fig.add_trace(
     go.Scatter3d(
         x=baseline["x"],
@@ -1010,9 +1028,20 @@ fig.add_trace(
         line=dict(width=2, color="red"),
     )
 )  # , showscale=False
+# sc1
+fig.add_trace(
+    go.Scatter3d(
+        x=[0],
+        y=[0],
+        z=[0],
+        name="relative orbit",
+        mode="markers",
+        marker=dict(size=2, color="black"),
+    )
+)
 # fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
 fig.update_layout(scene=dict(aspectmode="data"))
-fig_output(fig, output_path + "relative_orbit_3d.html")
+fig_output(fig, output_path + "relative_orbit_3d_lvlh.html")
 
 
 def cdt_plot(data, output_name):
@@ -1382,6 +1411,60 @@ def plot_gnss_direction(data, m_t):
 
 plot_gnss_direction(data, "m")
 plot_gnss_direction(data, "t")
+
+
+def plot_pco(data: pd.DataFrame, m_t: str) -> None:
+    pco_base_name = ["pco_x", "pco_y", "pco_z"]
+    fig = fig_init(data, pco_base_name, "mm")
+    col_names = [base + "_" + m_t for base in pco_base_name]
+    for i in range(len(pco_base_name)):
+        fig.add_trace(
+            go.Scatter(x=data.index, y=data[col_names[i]], name=pco_base_name[i]), row=i + 1, col=1
+        )
+    if m_t == "m":
+        suffix = "main"
+    else:
+        suffix = "target"
+    fig_output(fig, output_path + "pco_" + suffix + ".html")
+
+
+plot_pco(data, "m")
+plot_pco(data, "t")
+
+
+def plot_pcv_grid(pcc_path):
+    pcv_df = pd.read_csv(pcc_path, skiprows=1, header=None)
+    fig = px.scatter_polar(range_theta=[0, 360], start_angle=0, direction="counterclockwise")
+    num_azi, num_ele = pcv_df.shape
+    azi_increment = 360 / (num_azi - 1)
+    ele_increment = 90 / (num_ele - 1)
+
+    azi, ele = np.mgrid[0:365:azi_increment, 90:-5:-ele_increment]
+    color = np.fliplr(pcv_df.values)
+    fig.add_trace(
+        go.Barpolar(
+            r=ele.ravel(),
+            theta=azi.ravel(),
+            marker=dict(
+                color=color.ravel(), colorscale="viridis", colorbar_thickness=24, line_width=0
+            ),
+            dr=5,
+        ),
+    )
+    fig.update_layout(
+        polar=dict(
+            bargap=0,
+            radialaxis=dict(tickvals=[], showgrid=False, showline=False),
+            angularaxis=dict(showgrid=False, showline=False),
+            hole=0,
+            gridshape="linear",  # circular
+        )
+    )
+
+    fig_output(fig, output_path + "pcv_true" + ".html")
+
+
+plot_pcv_grid(pcc_log_path)
 
 # 最後に全グラフをまとめてコピー
 shutil.move(output_path, copy_dir + "/figure/")
