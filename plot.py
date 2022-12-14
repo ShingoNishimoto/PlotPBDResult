@@ -55,6 +55,9 @@ shutil.copyfile(log_path, copy_dir + "/result.csv")
 shutil.copytree(get_latest_modified_file_path(s2e_log_path_base), copy_dir + "/s2e_logs")
 
 data = pd.read_csv(log_path, header=None)
+
+REDUCE_DYNAMIC = 1
+
 # true information
 col_true_info = [
     "x_m_t",
@@ -267,6 +270,32 @@ col_gnss_dir = [
     "ele12_t",
 ]
 col_pco = ["pco_x_m", "pco_y_m", "pco_z_m", "pco_x_t", "pco_y_t", "pco_z_t"]
+col_ambiguity_flag = [
+    "N1_m",
+    "N2_m",
+    "N3_m",
+    "N4_m",
+    "N5_m",
+    "N6_m",
+    "N7_m",
+    "N8_m",
+    "N9_m",
+    "N10_m",
+    "N11_m",
+    "N12_m",
+    "N1_t",
+    "N2_t",
+    "N3_t",
+    "N4_t",
+    "N5_t",
+    "N6_t",
+    "N7_t",
+    "N8_t",
+    "N9_t",
+    "N10_t",
+    "N11_t",
+    "N12_t",
+]
 data_col = (
     col_true_info
     + col_est_info
@@ -402,6 +431,7 @@ data_col = (
     ]
     + col_gnss_dir
     + col_pco
+    + col_ambiguity_flag
     + [""]
 )
 acc_col = [
@@ -420,7 +450,6 @@ acc_col = [
 ]
 
 
-REDUCE_DYNAMIC = 1
 if len(data.columns) != len(data_col):
     REDUCE_DYNAMIC = 0
     for name in acc_col:
@@ -471,7 +500,7 @@ def fig_init(data, names, unit):
             zeroline=True,
             zerolinecolor="silver",
             zerolinewidth=1,
-            title=dict(text="$" + name + "[\\text{" + unit + "}]$", standoff=2),
+            title=dict(text="$" + name + "[" + unit + "]$", standoff=2),
             row=(i + 1),
         )
     fig.update_xaxes(title_text="$t[\\text{s}]$", row=len(names))
@@ -482,19 +511,22 @@ def fig_output(fig, name):
     fig.write_html(name, include_mathjax="cdn")
 
 
-def calc_relinfo(x_v_a, t_e, data):
+def calc_relinfo(r_v_a, t_e, data):
     """
     Args:
-        x_v_a: position or velocity or acceleration
+        r_v_a: position or velocity or acceleration
         t_e: true or estimation
         data: data(PandasDataframe)
     """
-    if x_v_a == "x":
+    if r_v_a == "r":
         base_names = ["x", "y", "z"]
-    elif x_v_a == "v":
+    elif r_v_a == "v":
         base_names = ["vx", "vy", "vz"]
-    else:
+    elif r_v_a == "a":
         base_names = ["ar", "at", "an"]
+    else:
+        print("false input")
+        return
     names_main = [base_name + "_m_" + t_e for base_name in base_names]
     names_target = [base_name + "_t_" + t_e for base_name in base_names]
     base = pd.DataFrame()
@@ -503,7 +535,7 @@ def calc_relinfo(x_v_a, t_e, data):
     return base
 
 
-base = calc_relinfo("x", "t", data)
+base = calc_relinfo("r", "t", data)
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=data.index, y=base.iloc[:, 0], name=r"$b_x$"))
 fig.add_trace(go.Scatter(x=data.index, y=base.iloc[:, 1], name=r"$b_y$"))
@@ -521,18 +553,70 @@ def trans_eci2rtn(position, velocity):
 # 精度評価には最後の1000sくらいのデータを使うようにする．
 data_offset = len(data) - 1000  # s
 
+# 後でちゃんと実装する．
+def generate_fig_3axis_precision(
+    base_names,
+    data,
+):
+    for i in range(len(names)):
+        RMS = np.sqrt(np.mean(data_for_plot.loc[data_offset:, col_names[i]] ** 2))
+        fig.add_trace(
+            go.Scatter(
+                mode="markers",
+                x=data_for_plot.index,
+                y=data_for_plot.loc[:, col_names[i]],
+                name="RMS:" + "{:.3f}".format(RMS) + "[" + unit + "]",
+                legendgroup=str(i + 1),
+                marker=dict(size=2, color=colors[i]),
+            ),
+            row=(i + 1),
+            col=1,
+        )
+        # 1 sigmaを計算してプロットする．
+        fig.add_trace(
+            go.Scatter(
+                x=data.index,
+                y=np.sqrt(data[M_names[i]]) * scale_param,
+                legendgroup=str(i),
+                line=dict(width=1, color="black"),
+                showlegend=False,
+            ),
+            row=(i + 1),
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=data.index,
+                y=-np.sqrt(data[M_names[i]]) * scale_param,
+                legendgroup=str(i),
+                line=dict(width=1, color="black"),
+                showlegend=False,
+            ),
+            row=(i + 1),
+            col=1,
+        )
+    return fig
 
-def plot_precision(x_v, m_t, data):
-    if x_v == "x":
+
+def plot_precision(r_v_a, m_t, data):
+    if r_v_a == "r":
         base_names = ["x", "y", "z"]
         axis_names = base_names
         unit = "m"
         scale_param = 1
-    else:
+    elif r_v_a == "v":
         base_names = ["vx", "vy", "vz"]
         axis_names = ["v_x", "v_y", "v_z"]
         unit = "mm/s"
         scale_param = 1000
+    elif r_v_a == "a":
+        base_names = ["ax", "ay", "az"]
+        axis_names = ["a_x", "a_y", "a_z"]
+        unit = "\micro m/s^2"
+        scale_param = 1e-3
+    else:
+        print("false input")
+        return
     if m_t == "m":
         suffix = "main"
     else:
@@ -585,39 +669,44 @@ def plot_precision(x_v, m_t, data):
         )
         # fig.update_layout(yaxis=dict(title_text=r"$\delta$" + name +"[" + unit + "]"))
     # fig.update_layout(plot_bgcolor="#f5f5f5", paper_bgcolor="white", legend_tracegroupgap = 180, font=dict(size=15)) # lightgray
-    filename = x_v + "_eci_precision_" + suffix + ".html"
+    filename = r_v_a + "_eci_precision_" + suffix + ".html"
     fig_output(fig, output_path + filename)
 
 
-plot_precision("x", "m", data)
-plot_precision("x", "t", data)
-plot_precision("v", "m", data)
-plot_precision("v", "t", data)
-
-
-def plot_precision_rtn(x_v, m_t, data):
-    if x_v == "x":
-        axis_name_base = "r"
+# 座標系に対しても統合したい．
+def plot_precision_rtn(r_v_a, m_t, data):
+    if r_v_a == "r":
         col_base_name = "res_pos_"
         unit = "m"
         scale_param = 1
         output_name = "position_rtn"
         M_names_base = ["Mrr", "Mrt", "Mrn"]
-    else:
-        axis_name_base = "v"
+    elif r_v_a == "v":
         col_base_name = "res_vel_"
         unit = "mm/s"
         scale_param = 1000
         output_name = "velocity_rtn"
         M_names_base = ["Mvr", "Mvt", "Mvn"]
+    elif r_v_a == "a":
+        col_names = ["ar", "at", "an"]
+        unit = "\micro m/s^2"
+        scale_param = 1
+        output_name = "a_rtn"
+        M_names_base = ["Mar", "Mat", "Man"]
+    else:
+        print("false input")
+        return
+
     frame_names = ["r", "t", "n"]
+    if r_v_a != "a":
+        col_names = [col_base_name + frame + "_" + m_t for frame in frame_names]
+
     if m_t == "m":
         suffix = "main"
     else:
         suffix = "target"
     data_for_plot = data * scale_param
-    col_names = [col_base_name + frame + "_" + m_t for frame in frame_names]
-    names = [axis_name_base + "_" + frame for frame in frame_names]
+    names = [r_v_a + "_" + frame for frame in frame_names]
     M_names = [M_name_base + "_" + m_t for M_name_base in M_names_base]
     fig = fig_init(data, names, unit)
     colors = ["red", "blue", "green"]
@@ -661,14 +750,9 @@ def plot_precision_rtn(x_v, m_t, data):
     fig_output(fig, output_path + output_name + "_precision_" + suffix + ".html")
 
 
-plot_precision_rtn("x", "m", data)
-plot_precision_rtn("x", "t", data)
-plot_precision_rtn("v", "m", data)
-plot_precision_rtn("v", "t", data)
-
-
-def plot_differential_precision(precision_data, x_v):
-    if x_v == "x":
+# ECIにおける相対精度情報を受け取っている．
+def plot_differential_precision(precision_data: pd.DataFrame(), x_v: str) -> None:
+    if x_v == "r":
         base_names = ["x", "y", "z"]
         axis_names = ["r_r", "r_t", "r_n"]
         unit = "m"
@@ -686,6 +770,11 @@ def plot_differential_precision(precision_data, x_v):
     names = ["d" + axis_name for axis_name in axis_names]
     fig = fig_init(data, names, unit)
     colors = ["red", "blue", "green"]
+    # eci -> rtnに変換
+    for i in range(len(precision_data)):
+        DCM = DCM_from_eci_to_rtn((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
+        precision_data.iloc[i, :] = np.dot(DCM, precision_data.iloc[i, :])
+
     for i in range(len(base_names)):
         RMS = np.sqrt(np.mean(precision_data.iloc[data_offset:, i] ** 2))
         fig.add_trace(
@@ -731,12 +820,6 @@ def plot_differential_precision(precision_data, x_v):
     fig_output(fig, output_path + output_name + "_precision.html")
 
 
-pbd_precision = calc_relinfo("x", "e", data) - calc_relinfo("x", "t", data)
-plot_differential_precision(pbd_precision, "x")
-dv_precision = calc_relinfo("v", "e", data) - calc_relinfo("v", "t", data)
-plot_differential_precision(dv_precision, "v")
-
-
 def plot_a(data, m_t):
     a_base_names = ["ar", "at", "an"]
     a_names = [base_name + "_" + m_t + "_e" for base_name in a_base_names]
@@ -759,9 +842,6 @@ def plot_a(data, m_t):
     # fig.update_yaxes(title_text="acc[nm/s2]")
     fig_output(fig, output_path + "a_emp_est_" + m_t + ".html")
 
-
-plot_a(data, "m")
-plot_a(data, "t")
 
 # 加速度の精度
 def calc_a_precision(data, data_s2e_log, m_t, frame):
@@ -786,49 +866,49 @@ def calc_a_precision(data, data_s2e_log, m_t, frame):
     a_dist_names = [base_name + "_dist_" + m_t for base_name in a_base_names]
     a_e = pd.DataFrame()
     for i in range(3):
-        a_e[a_base_names[i]] = data[a_names[i]] * 1e-6 + data[a_dist_names[i]] * 1e3  # mm/s2
+        a_e[a_base_names[i]] = data[a_names[i]] * 1e-3 + data[a_dist_names[i]] * 1e6  # um/s2
 
     if m_t == "t":
         a_t_names = [name + ".1" for name in a_t_names]
     a_t = pd.DataFrame()
     for i in range(3):
-        a_t[a_base_names[i]] = data_s2e_log[a_t_names[i]] * 1e3  # mm/s2
+        a_t[a_base_names[i]] = data_s2e_log[a_t_names[i]] * 1e6  # um/s2
+    a_t = a_t[1:].reset_index()  # ここはs2e_logとのindexずれがあるので補正している．
+
+    M_names = ["M" + name + "_" + m_t for name in a_base_names]
 
     precision = pd.DataFrame()
     for i in range(3):
         precision[a_base_names[i]] = a_e[a_base_names[i]] - a_t[a_base_names[i]]
+    # Mのデータも追加．
+    for i in range(3):
+        precision[M_names[i]] = data[M_names[i]] * (1e-3) ** 2  # um/s2 Mは2乗なので
     return precision
 
 
-def plot_a_precision(data, data_s2e_log, m_t, frame):
-    if frame == "eci":
-        a_base_names = ["ax", "ay", "az"]
-    elif frame == "rtn":
-        a_base_names = ["ar", "at", "an"]
-    else:
-        return
-    a_precision = calc_a_precision(data, data_s2e_log, m_t, frame)
-    fig = make_subplots(rows=3, cols=1, subplot_titles=tuple(a_base_names))
-    fig = fig_init(data, a_base_names, unit="mm/s2")
-    for i in range(3):
-        fig.add_trace(
-            go.Scatter(
-                mode="markers",
-                x=a_precision.index,
-                y=a_precision[a_base_names[i]],
-                name=a_base_names[i],
-                marker=dict(size=2, color="red"),
-            ),
-            row=i + 1,
-            col=1,
-        )
-    fig_output(fig, output_path + "a_precision_" + frame + "_" + m_t + ".html")
-
-
-plot_a_precision(data, data_s2e_csv, "m", "eci")
-plot_a_precision(data, data_s2e_csv, "t", "eci")
-plot_a_precision(data, data_s2e_csv, "m", "rtn")
-plot_a_precision(data, data_s2e_csv, "t", "rtn")
+# def plot_a_precision(data, data_s2e_log, m_t, frame):
+#     if frame == "eci":
+#         a_base_names = ["ax", "ay", "az"]
+#     elif frame == "rtn":
+#         a_base_names = ["ar", "at", "an"]
+#     else:
+#         return
+#     a_precision = calc_a_precision(data, data_s2e_log, m_t, frame)
+#     fig = make_subplots(rows=3, cols=1, subplot_titles=tuple(a_base_names))
+#     fig = fig_init(data, a_base_names, unit="mm/s2")
+#     for i in range(3):
+#         fig.add_trace(
+#             go.Scatter(
+#                 mode="markers",
+#                 x=a_precision.index,
+#                 y=a_precision[a_base_names[i]],
+#                 name=a_base_names[i],
+#                 marker=dict(size=2, color="red"),
+#             ),
+#             row=i + 1,
+#             col=1,
+#         )
+#     fig_output(fig, output_path + "a_precision_" + frame + "_" + m_t + ".html")
 
 
 def plot_a_eci(data, m_t):
@@ -850,10 +930,6 @@ def plot_a_eci(data, m_t):
             col=1,
         )
     fig_output(fig, output_path + "a_emp_eci_" + m_t + ".html")
-
-
-plot_a_eci(data, "m")
-plot_a_eci(data, "t")
 
 
 def plot_a_dist(data, m_t, frame):
@@ -880,11 +956,6 @@ def plot_a_dist(data, m_t, frame):
         )
     fig_output(fig, output_path + "a_dist_" + frame + "_" + m_t + ".html")
 
-
-plot_a_dist(data, "m", "eci")
-plot_a_dist(data, "t", "eci")
-plot_a_dist(data, "m", "rtn")
-plot_a_dist(data, "t", "rtn")
 
 # これは外乱成分のみの加速度，2体問題のやつは除外されている．
 def plot_a_eci_true(data_s2e_log, m_t):
@@ -915,9 +986,6 @@ def plot_a_eci_true(data_s2e_log, m_t):
     fig_output(fig, output_path + "a_true_eci_" + m_t + ".html")
 
 
-plot_a_eci_true(data_s2e_csv, "m")
-
-
 def plot_a_rtn_true(data_s2e_log, m_t):
     a_base_names = ["a_r", "a_t", "a_n"]
     # true
@@ -946,8 +1014,6 @@ def plot_a_rtn_true(data_s2e_log, m_t):
     fig_output(fig, output_path + "a_true_rtn_" + m_t + ".html")
 
 
-plot_a_rtn_true(data_s2e_csv, "m")
-
 # dataをRTNで入れてしまうとここでちゃんとしたプロットができない．
 fig = go.Figure()
 fig.add_trace(
@@ -975,7 +1041,7 @@ fig.update_layout(scene=dict(aspectmode="data"))
 fig_output(fig, output_path + "orbit_3d.html")
 
 # これはRTNで入れんと変じゃない？
-baseline = calc_relinfo("x", "t", data)
+baseline = calc_relinfo("r", "t", data)
 fig = go.Figure()
 fig.add_trace(
     go.Scatter3d(
@@ -1002,7 +1068,7 @@ fig.add_trace(
 fig.update_layout(scene=dict(aspectmode="data"))
 fig_output(fig, output_path + "relative_orbit_3d.html")
 
-# VLLHに直すと楕円になるのかも？
+
 def DCM_from_eci_to_lvlh(base_pos_vel):
     r_i, v_i = base_pos_vel
     z_lvlh_i = -r_i / np.linalg.norm(r_i)
@@ -1011,6 +1077,16 @@ def DCM_from_eci_to_lvlh(base_pos_vel):
     x_lvlh_i = np.cross(y_lvlh_i, z_lvlh_i)
     DCM_from_eci_to_lvlh = np.array([x_lvlh_i, y_lvlh_i, z_lvlh_i])
     return DCM_from_eci_to_lvlh
+
+
+def DCM_from_eci_to_rtn(base_pos_vel):
+    r_i, v_i = base_pos_vel
+    r_rtn_i = r_i / np.linalg.norm(r_i)
+    t_rtn_i = v_i / np.linalg.norm(v_i)
+    n_rtn_i = np.cross(r_rtn_i, t_rtn_i)
+    t_rtn_i = np.cross(n_rtn_i, r_rtn_i)
+    DCM_from_eci_to_rtn = np.array([r_rtn_i, t_rtn_i, n_rtn_i])
+    return DCM_from_eci_to_rtn
 
 
 # 時系列データに対して座標変換するの全て変換行列変わるしだるいな．．．最初からLVLHで出したい．．．
@@ -1075,22 +1151,27 @@ def cdt_plot(data, output_name):
     fig_output(fig, output_name + ".html")
 
 
-cdt_plot(data, output_path + "cdt")
-cdt_plot(data[data.index % 10 == 9], output_path + "cdt_sparse")
+def calc_cdt_sparse_precision(data):
+    data_sparse = data[data.index % 10 == 9]
+    t_names = ["cdt_main", "cdt_target"]
+    suffix = ["m", "t"]
+    for i in range(len(t_names)):
+        true_name_key = "t_" + suffix[i] + "_t"
+        est_name_key = "t_" + suffix[i] + "_e"
+        data_sparse[t_names[i]] = data_sparse[est_name_key] - data_sparse[true_name_key]
+    return data_sparse
 
-data_sparse = data[data.index % 10 == 9]
+
+cdt_precision = calc_cdt_sparse_precision(data)
 t_names = ["cdt_main", "cdt_target"]
 axis_names = ["c\delta t_{main}", "c\delta t_{target}"]
 suffix = ["m", "t"]
-fig = make_subplots(rows=2, cols=1, subplot_titles=tuple(t_names))
 fig = fig_init(data, axis_names, unit="m")
 for i in range(len(t_names)):
-    true_name_key = "t_" + suffix[i] + "_t"
-    est_name_key = "t_" + suffix[i] + "_e"
     fig.add_trace(
         go.Scatter(
-            x=data_sparse.index,
-            y=(data_sparse[est_name_key] - data_sparse[true_name_key]),
+            x=cdt_precision.index,
+            y=(cdt_precision[t_names[i]]),
             name=t_names[i],
             mode="markers",
             marker=dict(size=2, color="red"),
@@ -1101,8 +1182,8 @@ for i in range(len(t_names)):
     M_name = "Mt_" + suffix[i]
     fig.add_trace(
         go.Scatter(
-            x=data_sparse.index,
-            y=np.sqrt(data_sparse[M_name]),
+            x=cdt_precision.index,
+            y=np.sqrt(cdt_precision[M_name]),
             line=dict(width=1, color="black"),
             name="1 sigma",
         ),
@@ -1111,8 +1192,8 @@ for i in range(len(t_names)):
     )
     fig.add_trace(
         go.Scatter(
-            x=data_sparse.index,
-            y=-np.sqrt(data_sparse[M_name]),
+            x=cdt_precision.index,
+            y=-np.sqrt(cdt_precision[M_name]),
             line=dict(width=1, color="black"),
             showlegend=False,
         ),
@@ -1121,14 +1202,32 @@ for i in range(len(t_names)):
     )
 fig_output(fig, output_path + "cdt_sparse_precision.html")
 
+cdt_precision["dcdt"] = cdt_precision[t_names[1]] - cdt_precision[t_names[0]]
+fig = fig_init(cdt_precision, ["\Delta c\delta t"], unit="m")
+fig.add_trace(
+    go.Scatter(
+        x=cdt_precision.index,
+        y=(cdt_precision["dcdt"]),
+        mode="markers",
+        marker=dict(size=2, color="red"),
+    ),
+)
+fig_output(fig, output_path + "dcdt_sparse_precision.html")
 
-def plot_N_precision(data, m_t):
+
+def calc_N_precision(data, m_t):
     precision = pd.DataFrame()
-    fig = go.Figure()
     for i in range(12):
         t_col_name = "N" + str(i + 1) + "_" + m_t + "_t"
         e_col_name = "N" + str(i + 1) + "_" + m_t + "_e"
         precision[i + 1] = data[e_col_name] - data[t_col_name]
+    return precision
+
+
+def plot_N_precision(data, m_t):
+    fig = go.Figure()
+    precision = calc_N_precision(data, m_t)
+    for i in range(12):
         fig.add_trace(go.Scatter(x=data.index, y=precision[i + 1], name="N" + str(i + 1)))
     fig.update_xaxes(title_text="$t[s]$")
     fig.update_yaxes(title_text="$N[cycle]$")
@@ -1139,8 +1238,43 @@ def plot_N_precision(data, m_t):
     fig_output(fig, output_path + "N_precision_" + suffix + ".html")
 
 
-plot_N_precision(data, "m")
-plot_N_precision(data, "t")
+def plot_dN_precision(data: pd.DataFrame):
+    precision_m = calc_N_precision(data, "m")
+    precision_t = calc_N_precision(data, "t")
+    precision = pd.DataFrame(columns=[i + 1 for i in range(12)])
+    for row in data.itertuples():
+        # このやり方しかないんか？コスト高すぎしんどい．
+        row_array = np.zeros(12)
+        for i in range(12):
+            id_m = row._asdict()["id_ch" + str(i + 1) + "_m"]
+            for j in range(12):
+                if row._asdict()["id_ch" + str(j + 1) + "_t"] == id_m:
+                    row_array[i] = (
+                        precision_m.at[row.Index, i + 1] - precision_t.at[row.Index, j + 1]
+                    )
+                    break
+        precision.loc[row.Index] = row_array
+    fig = go.Figure()
+    for i in range(12):
+        fig.add_trace(go.Scatter(x=data.index, y=precision[i + 1], name="dN" + str(i + 1)))
+    fig.update_xaxes(title_text="$t[s]$")
+    fig.update_yaxes(title_text="$dN[cycle]$")
+    fig_output(fig, output_path + "dN_precision" + ".html")
+
+
+def plot_N_fix_flag(data, m_t):
+    precision = pd.DataFrame()
+    fig = go.Figure()
+    for i in range(12):
+        col_name = "N" + str(i + 1) + "_" + m_t
+        fig.add_trace(go.Scatter(x=data.index, y=data[col_name], name="N" + str(i + 1)))
+    fig.update_xaxes(title_text="$t[s]$")
+    fig.update_yaxes(title_text="is_fixed")
+    if m_t == "m":
+        suffix = "main"
+    else:
+        suffix = "target"
+    fig_output(fig, output_path + "N_is_fixed_" + suffix + ".html")
 
 
 def N_plot(m_t: str, t_e: str) -> None:
@@ -1160,11 +1294,6 @@ def N_plot(m_t: str, t_e: str) -> None:
         suffix2 = "target"
     fig_output(fig, output_path + "N_" + suffix1 + "_" + suffix2 + ".html")
 
-
-N_plot("m", "t")
-N_plot("t", "t")
-N_plot("m", "e")
-N_plot("t", "e")
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Mt_m"]), name="Mt_m"))
@@ -1207,10 +1336,6 @@ def plot_QN(data, m_t):
     else:
         suffix = "target"
     fig_output(fig, output_path + "QN_" + suffix + ".html")
-
-
-plot_QN(data, "m")
-plot_QN(data, "t")
 
 
 def plot_Ma(data, m_t):
@@ -1299,14 +1424,6 @@ def plot_Q(data, rva, m_t):
     fig_output(fig, output_path + file_name_base + "_" + suffix + ".html")
 
 
-plot_Q(data, "r", "m")
-plot_Q(data, "r", "t")
-plot_Q(data, "v", "m")
-plot_Q(data, "v", "t")
-if REDUCE_DYNAMIC:
-    plot_Q(data, "a", "m")
-    plot_Q(data, "a", "t")
-
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Qt_m"]), name="cdt_m"))
 fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Qt_t"]), name="cdt_t"))
@@ -1383,10 +1500,6 @@ def plot_determined_position_precision(
     fig_output(fig, output_path + "navigated_pos_diff_" + suffix + ".html")
 
 
-plot_receive_position(data, data_s2e_csv, "m")
-plot_determined_position_precision(data, data_s2e_csv, "m")
-
-
 def plot_gnss_direction(data, m_t):
     fig = px.scatter_polar(range_theta=[0, 360], start_angle=0, direction="counterclockwise")
 
@@ -1409,10 +1522,6 @@ def plot_gnss_direction(data, m_t):
     fig_output(fig, output_path + "gnss_observed_direction_" + suffix + ".html")
 
 
-plot_gnss_direction(data, "m")
-plot_gnss_direction(data, "t")
-
-
 def plot_pco(data: pd.DataFrame, m_t: str) -> None:
     pco_base_name = ["pco_x", "pco_y", "pco_z"]
     fig = fig_init(data, pco_base_name, "mm")
@@ -1426,10 +1535,6 @@ def plot_pco(data: pd.DataFrame, m_t: str) -> None:
     else:
         suffix = "target"
     fig_output(fig, output_path + "pco_" + suffix + ".html")
-
-
-plot_pco(data, "m")
-plot_pco(data, "t")
 
 
 def plot_pcv_grid(pcc_path):
@@ -1448,7 +1553,7 @@ def plot_pcv_grid(pcc_path):
             marker=dict(
                 color=color.ravel(), colorscale="viridis", colorbar_thickness=24, line_width=0
             ),
-            dr=5,
+            # dr=5,
         ),
     )
     fig.update_layout(
@@ -1458,13 +1563,73 @@ def plot_pcv_grid(pcc_path):
             angularaxis=dict(showgrid=False, showline=False),
             hole=0,
             gridshape="linear",  # circular
-        )
+        ),
+        font=dict(size=20),
     )
 
     fig_output(fig, output_path + "pcv_true" + ".html")
 
 
-plot_pcv_grid(pcc_log_path)
+# plot
+plot_precision("r", "m", data)
+plot_precision("r", "t", data)
+plot_precision("v", "m", data)
+plot_precision("v", "t", data)
+plot_precision_rtn("r", "m", data)
+plot_precision_rtn("r", "t", data)
+plot_precision_rtn("v", "m", data)
+plot_precision_rtn("v", "t", data)
+plot_precision_rtn("a", "m", calc_a_precision(data, data_s2e_csv, "m", "rtn"))
+plot_precision_rtn("a", "t", calc_a_precision(data, data_s2e_csv, "t", "rtn"))
+pbd_precision = calc_relinfo("r", "e", data) - calc_relinfo("r", "t", data)
+plot_differential_precision(pbd_precision, "r")
+dv_precision = calc_relinfo("v", "e", data) - calc_relinfo("v", "t", data)
+plot_differential_precision(dv_precision, "v")
+
+plot_a(data, "m")
+plot_a(data, "t")
+# plot_a_precision(data, data_s2e_csv, "m", "eci")
+# plot_a_precision(data, data_s2e_csv, "t", "eci")
+# plot_a_eci(data, "m")
+# plot_a_eci(data, "t")
+# plot_a_dist(data, "m", "eci")
+# plot_a_dist(data, "t", "eci")
+# plot_a_dist(data, "m", "rtn")
+# plot_a_dist(data, "t", "rtn")
+# plot_a_eci_true(data_s2e_csv, "m")
+# plot_a_rtn_true(data_s2e_csv, "m")
+
+cdt_plot(data, output_path + "cdt")
+cdt_plot(data[data.index % 10 == 9], output_path + "cdt_sparse")
+
+plot_N_precision(data, "m")
+plot_N_precision(data, "t")
+# plot_dN_precision(data)  # 計算コスト高いので必要な時だけにする．
+plot_N_fix_flag(data, "m")
+plot_N_fix_flag(data, "t")
+# N_plot("m", "t")
+# N_plot("t", "t")
+# N_plot("m", "e")
+# N_plot("t", "e")
+
+plot_QN(data, "m")
+plot_QN(data, "t")
+plot_Q(data, "r", "m")
+plot_Q(data, "r", "t")
+plot_Q(data, "v", "m")
+plot_Q(data, "v", "t")
+if REDUCE_DYNAMIC:
+    plot_Q(data, "a", "m")
+    plot_Q(data, "a", "t")
+# plot_receive_position(data, data_s2e_csv, "m")
+# plot_determined_position_precision(data, data_s2e_csv, "m")
+plot_gnss_direction(data, "m")
+plot_gnss_direction(data, "t")
+plot_pco(data, "m")
+plot_pco(data, "t")
+
+
+# plot_pcv_grid(pcc_log_path)
 
 # 最後に全グラフをまとめてコピー
 shutil.move(output_path, copy_dir + "/figure/")
