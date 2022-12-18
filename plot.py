@@ -23,6 +23,7 @@ def get_latest_modified_file_path(dirname):
 
 s2e_dir = "../../s2e_pbd/"
 s2e_log_path_base = s2e_dir + "data/logs"
+s2e_debug = s2e_dir + "CMakeBuilds/Debug/"
 s2e_log_dir = get_latest_modified_file_path(s2e_log_path_base)
 s2e_csv_log_path = (
     s2e_log_dir + "/" + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]
@@ -30,16 +31,18 @@ s2e_csv_log_path = (
 # ここは適宜修正する．
 # copy_base_dir = "/mnt/g/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
 copy_base_dir = "G:/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
-sim_config_path = s2e_dir + "CMakeBuilds/Debug/readme_new.txt"
-log_path = s2e_dir + "CMakeBuilds/Debug/result_new.csv"
-pcc_log_path = s2e_dir + "CMakeBuilds/Debug/phase_center_correction.csv"
+sim_config_path = s2e_debug + "readme_new.txt"
+log_path = s2e_debug + "result_new.csv"
+pcc_log_path = s2e_debug + "phase_center_correction.csv"
 
 # コピーしたログファイルからグラフ描くとき===========
-# log_base = copy_base_dir + '20220828_224856_ukaren_AKF' # ここを修正
-# sim_config_path = log_base + '/readme.txt'
-# log_path = log_base + '/result.csv'
+# log_base = copy_base_dir + "20221215_101826"  # ここを修正
+# sim_config_path = log_base + "/readme.txt"
+# log_path = log_base + "/result.csv"
 # s2e_log_dir = log_base + "/s2e_logs"
-# s2e_csv_log_path = s2e_log_dir + '/' + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]
+# s2e_csv_log_path = (
+#     s2e_log_dir + "/" + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]
+# )
 # ================================================
 
 # 実行時にメモ残すようにするといいかも
@@ -51,8 +54,10 @@ copy_dir = copy_base_dir + dt_now.strftime("%Y%m%d_%H%M%S")
 os.mkdir(copy_dir)
 # os.mkdir(copy_dir + '/figure')
 shutil.copyfile(sim_config_path, copy_dir + "/readme.txt")
-shutil.copyfile(log_path, copy_dir + "/result.csv")
 shutil.copytree(get_latest_modified_file_path(s2e_log_path_base), copy_dir + "/s2e_logs")
+# 独自csvをすべてコピー．
+for file in glob(s2e_debug + "*.csv"):
+    shutil.copy(file, copy_dir)
 
 data = pd.read_csv(log_path, header=None)
 
@@ -551,7 +556,8 @@ def trans_eci2rtn(position, velocity):
 
 
 # 精度評価には最後の1000sくらいのデータを使うようにする．
-data_offset = len(data) - 1000  # s
+# data_offset = len(data) - 1000  # s
+data_offset = 600  # s
 
 # 後でちゃんと実装する．
 def generate_fig_3axis_precision(
@@ -750,30 +756,45 @@ def plot_precision_rtn(r_v_a, m_t, data):
     fig_output(fig, output_path + output_name + "_precision_" + suffix + ".html")
 
 
-# ECIにおける相対精度情報を受け取っている．
-def plot_differential_precision(precision_data: pd.DataFrame(), x_v: str) -> None:
-    if x_v == "r":
+def plot_differential_precision(
+    data: pd.DataFrame(), precision_data: pd.DataFrame(), r_v_a: str, input_frame: str
+) -> None:
+    if r_v_a == "r":
         base_names = ["x", "y", "z"]
         axis_names = ["r_r", "r_t", "r_n"]
         unit = "m"
         scale_param = 1
         output_name = "relative_position"
         M_names = ["Mrr", "Mrt", "Mrn"]
-    else:
+    elif r_v_a == "v":
         base_names = ["vx", "vy", "vz"]
         axis_names = ["v_r", "v_t", "v_n"]
         unit = "mm/s"
         scale_param = 1000
         output_name = "relative_velocity"
         M_names = ["Mvr", "Mvt", "Mvn"]
+    elif r_v_a == "a":
+        base_names = ["ar", "at", "an"]
+        unit = "\micro m/s^2"
+        scale_param = 1
+        axis_names = ["a_r", "a_t", "a_n"]
+        output_name = "relative_a"
+        M_names = ["Mar", "Mat", "Man"]
+    else:
+        print("input error!")
+        return
+
     precision_data *= scale_param
     names = ["d" + axis_name for axis_name in axis_names]
     fig = fig_init(data, names, unit)
     colors = ["red", "blue", "green"]
     # eci -> rtnに変換
-    for i in range(len(precision_data)):
-        DCM = DCM_from_eci_to_rtn((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
-        precision_data.iloc[i, :] = np.dot(DCM, precision_data.iloc[i, :])
+    if input_frame == "ECI":
+        for i in range(len(precision_data)):
+            DCM = DCM_from_eci_to_rtn(
+                (data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"])
+            )
+            precision_data.iloc[i, :] = np.dot(DCM, precision_data.iloc[i, :])
 
     for i in range(len(base_names)):
         RMS = np.sqrt(np.mean(precision_data.iloc[data_offset:, i] ** 2))
@@ -844,7 +865,9 @@ def plot_a(data, m_t):
 
 
 # 加速度の精度
-def calc_a_precision(data, data_s2e_log, m_t, frame):
+def calc_a_precision(
+    data: pd.DataFrame(), data_s2e_log: pd.DataFrame(), m_t: str, frame: str
+) -> pd.DataFrame():
     if frame == "eci":
         a_base_names = ["ax", "ay", "az"]
         a_names = [base_name + "_" + m_t for base_name in a_base_names]
@@ -883,6 +906,7 @@ def calc_a_precision(data, data_s2e_log, m_t, frame):
     # Mのデータも追加．
     for i in range(3):
         precision[M_names[i]] = data[M_names[i]] * (1e-3) ** 2  # um/s2 Mは2乗なので
+        data[M_names[i]] = precision[M_names[i]]  # dataの方にもコピー
     return precision
 
 
@@ -1295,13 +1319,13 @@ def N_plot(m_t: str, t_e: str) -> None:
     fig_output(fig, output_path + "N_" + suffix1 + "_" + suffix2 + ".html")
 
 
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Mt_m"]), name="Mt_m"))
-fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Mt_t"]), name="Mt_t"))
-fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$M[m]$")
-fig_output(fig, output_path + "Mt.html")
-# fig.show()
+# fig = go.Figure()
+# fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Mt_m"]), name="Mt_m"))
+# fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Mt_t"]), name="Mt_t"))
+# fig.update_xaxes(title_text="$t[s]$")
+# fig.update_yaxes(title_text="$M[m]$")
+# fig_output(fig, output_path + "Mt.html")
+# # fig.show()
 
 fig = go.Figure()
 for i in range(12):
@@ -1537,37 +1561,71 @@ def plot_pco(data: pd.DataFrame, m_t: str) -> None:
     fig_output(fig, output_path + "pco_" + suffix + ".html")
 
 
-def plot_pcv_grid(pcc_path):
+def plot_pcv_grid(pcc_path, out_fname):
     pcv_df = pd.read_csv(pcc_path, skiprows=1, header=None)
-    fig = px.scatter_polar(range_theta=[0, 360], start_angle=0, direction="counterclockwise")
+    fig = px.scatter_polar(
+        range_theta=[0, 360],
+        start_angle=0,
+        direction="counterclockwise",
+    )
+    # fig = go.Figure()
     num_azi, num_ele = pcv_df.shape
     azi_increment = 360 / (num_azi - 1)
     ele_increment = 90 / (num_ele - 1)
 
-    azi, ele = np.mgrid[0:365:azi_increment, 90:-5:-ele_increment]
-    color = np.fliplr(pcv_df.values)
+    # azi, ele = np.mgrid[0:365:azi_increment, 90:-5:-ele_increment]
+    azi, ele = np.mgrid[0:365:azi_increment, 0:95:ele_increment]  # mgridですると等分にならないのか？
+    # color = np.fliplr(pcv_df.values)
+    color = pcv_df.values
     fig.add_trace(
+        # px.bar_polar(
         go.Barpolar(
             r=ele.ravel(),
             theta=azi.ravel(),
             marker=dict(
-                color=color.ravel(), colorscale="viridis", colorbar_thickness=24, line_width=0
+                color=color.ravel(),
+                colorscale="portland",  # viridis
+                colorbar_thickness=24,
+                line_width=0,
+                cmin=-5.0,
+                cmax=9.0,
             ),
+            theta0=0,
             # dr=5,
-        ),
+            # customdata=color.ravel(),
+            hovertext=color.ravel(),
+            hoverinfo="r+text",
+        )
     )
     fig.update_layout(
         polar=dict(
             bargap=0,
-            radialaxis=dict(tickvals=[], showgrid=False, showline=False),
-            angularaxis=dict(showgrid=False, showline=False),
+            radialaxis=dict(
+                # tick0=0,
+                # dtick="L5.0",
+                # ticks="",
+                tickmode="linear",
+                showgrid=False,
+                showline=False,
+                gridwidth=0,
+                linewidth=0,
+                rangemode="normal",
+                # ticklabelstep=10,
+                # range=(0, 90),
+            ),  # type="linear",
+            angularaxis=dict(
+                showgrid=False,
+                showline=False,
+                # tickmode="linear",
+            ),
             hole=0,
             gridshape="linear",  # circular
         ),
         font=dict(size=20),
+        hovermode="closest",
     )
 
-    fig_output(fig, output_path + "pcv_true" + ".html")
+    fig_output(fig, output_path + out_fname + ".html")
 
 
 # plot
@@ -1579,12 +1637,17 @@ plot_precision_rtn("r", "m", data)
 plot_precision_rtn("r", "t", data)
 plot_precision_rtn("v", "m", data)
 plot_precision_rtn("v", "t", data)
-plot_precision_rtn("a", "m", calc_a_precision(data, data_s2e_csv, "m", "rtn"))
-plot_precision_rtn("a", "t", calc_a_precision(data, data_s2e_csv, "t", "rtn"))
+a_m_precision = calc_a_precision(data, data_s2e_csv, "m", "rtn")
+a_t_precision = calc_a_precision(data, data_s2e_csv, "t", "rtn")
+plot_precision_rtn("a", "m", a_m_precision)
+plot_precision_rtn("a", "t", a_t_precision)
 pbd_precision = calc_relinfo("r", "e", data) - calc_relinfo("r", "t", data)
-plot_differential_precision(pbd_precision, "r")
+plot_differential_precision(data, pbd_precision, "r", "ECI")
 dv_precision = calc_relinfo("v", "e", data) - calc_relinfo("v", "t", data)
-plot_differential_precision(dv_precision, "v")
+plot_differential_precision(data, dv_precision, "v", "ECI")
+plot_differential_precision(
+    data, a_t_precision.iloc[:, 0:3] - a_m_precision.iloc[:, 0:3], "a", "RTN"
+)
 
 plot_a(data, "m")
 plot_a(data, "t")
@@ -1629,7 +1692,8 @@ plot_pco(data, "m")
 plot_pco(data, "t")
 
 
-# plot_pcv_grid(pcc_log_path)
+plot_pcv_grid(pcc_log_path, "pcv_true")
+plot_pcv_grid(s2e_debug + "target_pcv.csv", "estimated_target_pcv")
 
 # 最後に全グラフをまとめてコピー
 shutil.move(output_path, copy_dir + "/figure/")
