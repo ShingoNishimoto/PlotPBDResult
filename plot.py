@@ -4,6 +4,8 @@ import shutil
 from asyncio import constants
 from glob import glob
 
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly as py
@@ -11,6 +13,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
 from matplotlib.axis import YAxis
+from matplotlib.colors import Normalize
+from mpl_toolkits.mplot3d import Axes3D
 from plotly.subplots import make_subplots
 
 
@@ -177,18 +181,18 @@ col_M = [
     "Mar_m",
     "Mat_m",
     "Man_m",
-    "MNm1",
-    "MNm2",
-    "MNm3",
-    "MNm4",
-    "MNm5",
-    "MNm6",
-    "MNm7",
-    "MNm8",
-    "MNm9",
-    "MNm10",
-    "MNm11",
-    "MNm12",
+    "MN1_m",
+    "MN2_m",
+    "MN3_m",
+    "MN4_m",
+    "MN5_m",
+    "MN6_m",
+    "MN7_m",
+    "MN8_m",
+    "MN9_m",
+    "MN10_m",
+    "MN11_m",
+    "MN12_m",
     "Mx_t",
     "My_t",
     "Mz_t",
@@ -199,18 +203,18 @@ col_M = [
     "Mar_t",
     "Mat_t",
     "Man_t",
-    "MNt1",
-    "MNt2",
-    "MNt3",
-    "MNt4",
-    "MNt5",
-    "MNt6",
-    "MNt7",
-    "MNt8",
-    "MNt9",
-    "MNt10",
-    "MNt11",
-    "MNt12",
+    "MN1_t",
+    "MN2_t",
+    "MN3_t",
+    "MN4_t",
+    "MN5_t",
+    "MN6_t",
+    "MN7_t",
+    "MN8_t",
+    "MN9_t",
+    "MN10_t",
+    "MN11_t",
+    "MN12_t",
     "Mrr_m",
     "Mrt_m",
     "Mrn_m",
@@ -499,13 +503,14 @@ def fig_init(data, names, unit):
             range=(data.index[0], data.index[-1]),
             row=(i + 1),
         )
+        axis_name = "$" + name + "[" + unit + "]$"
         fig.update_yaxes(
             linecolor="black",
             mirror=True,
             zeroline=True,
             zerolinecolor="silver",
             zerolinewidth=1,
-            title=dict(text="$" + name + "[" + unit + "]$", standoff=2),
+            title=dict(text=axis_name, standoff=2),
             row=(i + 1),
         )
     fig.update_xaxes(title_text="$t[\\text{s}]$", row=len(names))
@@ -618,15 +623,13 @@ def plot_precision(r_v_a, m_t, data):
     elif r_v_a == "a":
         base_names = ["ax", "ay", "az"]
         axis_names = ["a_x", "a_y", "a_z"]
-        unit = "\micro m/s^2"
+        unit = "um/s^2"
         scale_param = 1e-3
     else:
         print("false input")
         return
-    if m_t == "m":
-        suffix = "main"
-    else:
-        suffix = "target"
+
+    suffix = get_suffix(m_t)
     precision = pd.DataFrame()
     # fig = go.Figure()
     fig = fig_init(data=data, names=axis_names, unit=unit)
@@ -679,6 +682,16 @@ def plot_precision(r_v_a, m_t, data):
     fig_output(fig, output_path + filename)
 
 
+def get_suffix(m_t: str) -> str:
+    if m_t == "m":
+        return "main"
+    elif m_t == "t":
+        return "target"
+    else:
+        print("ERROR: input error!")
+        return ""
+
+
 # 座標系に対しても統合したい．
 def plot_precision_rtn(r_v_a, m_t, data):
     if r_v_a == "r":
@@ -695,7 +708,7 @@ def plot_precision_rtn(r_v_a, m_t, data):
         M_names_base = ["Mvr", "Mvt", "Mvn"]
     elif r_v_a == "a":
         col_names = ["ar", "at", "an"]
-        unit = "\micro m/s^2"
+        unit = "um/s^2"
         scale_param = 1
         output_name = "a_rtn"
         M_names_base = ["Mar", "Mat", "Man"]
@@ -707,10 +720,8 @@ def plot_precision_rtn(r_v_a, m_t, data):
     if r_v_a != "a":
         col_names = [col_base_name + frame + "_" + m_t for frame in frame_names]
 
-    if m_t == "m":
-        suffix = "main"
-    else:
-        suffix = "target"
+    suffix = get_suffix(m_t)
+
     data_for_plot = data * scale_param
     names = [r_v_a + "_" + frame for frame in frame_names]
     M_names = [M_name_base + "_" + m_t for M_name_base in M_names_base]
@@ -775,7 +786,7 @@ def plot_differential_precision(
         M_names = ["Mvr", "Mvt", "Mvn"]
     elif r_v_a == "a":
         base_names = ["ar", "at", "an"]
-        unit = "\micro m/s^2"
+        unit = "um/s^2"
         scale_param = 1
         axis_names = ["a_r", "a_t", "a_n"]
         output_name = "relative_a"
@@ -908,31 +919,6 @@ def calc_a_precision(
         precision[M_names[i]] = data[M_names[i]] * (1e-3) ** 2  # um/s2 Mは2乗なので
         data[M_names[i]] = precision[M_names[i]]  # dataの方にもコピー
     return precision
-
-
-# def plot_a_precision(data, data_s2e_log, m_t, frame):
-#     if frame == "eci":
-#         a_base_names = ["ax", "ay", "az"]
-#     elif frame == "rtn":
-#         a_base_names = ["ar", "at", "an"]
-#     else:
-#         return
-#     a_precision = calc_a_precision(data, data_s2e_log, m_t, frame)
-#     fig = make_subplots(rows=3, cols=1, subplot_titles=tuple(a_base_names))
-#     fig = fig_init(data, a_base_names, unit="mm/s2")
-#     for i in range(3):
-#         fig.add_trace(
-#             go.Scatter(
-#                 mode="markers",
-#                 x=a_precision.index,
-#                 y=a_precision[a_base_names[i]],
-#                 name=a_base_names[i],
-#                 marker=dict(size=2, color="red"),
-#             ),
-#             row=i + 1,
-#             col=1,
-#         )
-#     fig_output(fig, output_path + "a_precision_" + frame + "_" + m_t + ".html")
 
 
 def plot_a_eci(data, m_t):
@@ -1182,7 +1168,9 @@ def calc_cdt_sparse_precision(data):
     for i in range(len(t_names)):
         true_name_key = "t_" + suffix[i] + "_t"
         est_name_key = "t_" + suffix[i] + "_e"
-        data_sparse[t_names[i]] = data_sparse[est_name_key] - data_sparse[true_name_key]
+        data_sparse.loc[:, t_names[i]] = (
+            data_sparse.loc[:, est_name_key] - data_sparse.loc[:, true_name_key]
+        )
     return data_sparse
 
 
@@ -1226,7 +1214,7 @@ for i in range(len(t_names)):
     )
 fig_output(fig, output_path + "cdt_sparse_precision.html")
 
-cdt_precision["dcdt"] = cdt_precision[t_names[1]] - cdt_precision[t_names[0]]
+cdt_precision.loc[:, "dcdt"] = cdt_precision.loc[:, t_names[1]] - cdt_precision.loc[:, t_names[0]]
 fig = fig_init(cdt_precision, ["\Delta c\delta t"], unit="m")
 fig.add_trace(
     go.Scatter(
@@ -1255,10 +1243,7 @@ def plot_N_precision(data, m_t):
         fig.add_trace(go.Scatter(x=data.index, y=precision[i + 1], name="N" + str(i + 1)))
     fig.update_xaxes(title_text="$t[s]$")
     fig.update_yaxes(title_text="$N[cycle]$")
-    if m_t == "m":
-        suffix = "main"
-    else:
-        suffix = "target"
+    suffix = get_suffix(m_t)
     fig_output(fig, output_path + "N_precision_" + suffix + ".html")
 
 
@@ -1294,10 +1279,8 @@ def plot_N_fix_flag(data, m_t):
         fig.add_trace(go.Scatter(x=data.index, y=data[col_name], name="N" + str(i + 1)))
     fig.update_xaxes(title_text="$t[s]$")
     fig.update_yaxes(title_text="is_fixed")
-    if m_t == "m":
-        suffix = "main"
-    else:
-        suffix = "target"
+    suffix = get_suffix(m_t)
+
     fig_output(fig, output_path + "N_is_fixed_" + suffix + ".html")
 
 
@@ -1312,60 +1295,32 @@ def N_plot(m_t: str, t_e: str) -> None:
         suffix1 = "true"
     else:
         suffix1 = "est"
-    if m_t == "m":
-        suffix2 = "main"
-    else:
-        suffix2 = "target"
+    suffix2 = get_suffix(m_t)
+
     fig_output(fig, output_path + "N_" + suffix1 + "_" + suffix2 + ".html")
 
 
-# fig = go.Figure()
-# fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Mt_m"]), name="Mt_m"))
-# fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Mt_t"]), name="Mt_t"))
-# fig.update_xaxes(title_text="$t[s]$")
-# fig.update_yaxes(title_text="$M[m]$")
-# fig_output(fig, output_path + "Mt.html")
-# # fig.show()
-
-fig = go.Figure()
-for i in range(12):
-    M_col_name = "MNm" + str(i + 1)
-    fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data[M_col_name]), name="MN" + str(i + 1)))
-fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$M[cycle]$")
-fig_output(fig, output_path + "MN_main.html")
-# fig.show()
-
-fig = go.Figure()
-for i in range(12):
-    M_col_name = "MNt" + str(i + 1)
-    fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data[M_col_name]), name="MN" + str(i + 1)))
-fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$M[cycle]$")
-fig_output(fig, output_path + "MN_target.html")
-# fig.show()
-
-
-def plot_QN(data, m_t):
+def plot_QM_N(data, Q_M, m_t):
     fig = go.Figure()
+    out_fname_base = Q_M + "N"
     for i in range(12):
-        Q_col_name = "QN" + str(i + 1) + "_" + m_t
+        col_name = out_fname_base + str(i + 1) + "_" + m_t
         fig.add_trace(
-            go.Scatter(x=data.index, y=np.sqrt(data[Q_col_name]), name="$Q_{N" + str(i + 1) + "}$")
+            go.Scatter(
+                x=data.index, y=np.sqrt(data[col_name]), name="$" + Q_M + "_{N" + str(i + 1) + "}$"
+            )
         )
     fig.update_xaxes(title_text="$t[s]$")
-    fig.update_yaxes(title_text="$Q[cycle]$")
-    if m_t == "m":
-        suffix = "main"
-    else:
-        suffix = "target"
-    fig_output(fig, output_path + "QN_" + suffix + ".html")
+    fig.update_yaxes(title_text="$" + Q_M + "[cycle]$")
+    suffix = get_suffix(m_t)
+
+    fig_output(fig, output_path + out_fname_base + "_" + suffix + ".html")
 
 
 def plot_Ma(data, m_t):
     Ma_base_names = ["Mar", "Mat", "Man"]
     Ma_names = [base_name + "_" + m_t for base_name in Ma_base_names]
-    fig = make_subplots(rows=3, cols=1, subplot_titles=tuple(Ma_base_names))
+    # fig = make_subplots(rows=3, cols=1, subplot_titles=tuple(Ma_base_names))
     fig = fig_init(data, Ma_base_names, unit="nm/s2")
     for i in range(3):
         fig.add_trace(
@@ -1379,109 +1334,101 @@ def plot_Ma(data, m_t):
             row=i + 1,
             col=1,
         )
-    fig_output(fig, output_path + "Ma_emp_" + m_t + ".html")
+    fig_output(fig, output_path + "Ma_emp_" + get_suffix(m_t) + ".html")
 
 
-if REDUCE_DYNAMIC:
-    plot_Ma(data, "m")
-    plot_Ma(data, "t")
-
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Mt_m"]), name="Mt_m"))
-fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Mt_t"]), name="Mt_t"))
-fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$M[m]$")
-fig_output(fig, output_path + "Mt.html")
-
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=data.index, y=data["sat_num_main"], name="main"))
-fig.add_trace(go.Scatter(x=data.index, y=data["sat_num_target"], name="target"))
-fig.add_trace(go.Scatter(x=data.index, y=data["sat_num_common"], name="common"))
-fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="number")
-fig_output(fig, output_path + "visible_gnss_sat.html")
-# fig.show()
-
-fig = go.Figure()
-for i in range(12):
-    ch_col_name = "id_ch" + str(i + 1) + "_m"
-    fig.add_trace(go.Scatter(x=data.index, y=data[ch_col_name], name="ch" + str(i + 1)))
-fig.update_xaxes(title_text="t[s]")
-fig.update_yaxes(title_text="gnss sat id")
-fig_output(fig, output_path + "gnss_sat_id_main.html")
-# fig.show()
-
-fig = go.Figure()
-for i in range(12):
-    ch_col_name = "id_ch" + str(i + 1) + "_t"
-    fig.add_trace(go.Scatter(x=data.index, y=data[ch_col_name], name="ch" + str(i + 1)))
-fig.update_xaxes(title_text="t[s]")
-fig.update_yaxes(title_text="gnss sat id")
-fig_output(fig, output_path + "gnss_sat_id_target.html")
-# fig.show()
-
-
-def plot_Q(data, rva, m_t):
+def plot_visible_gnss_sat(data: pd.DataFrame()):
     fig = go.Figure()
-    if rva == "r":
+    names = ["main", "target", "common"]
+    fig = fig_init(data, names, unit="nm/s2")
+    for i in range(3):
+        fig.add_trace(
+            go.Scatter(
+                mode="lines",
+                x=data.index,
+                y=np.sqrt(data["sat_num_" + names[i]]),
+                name=names[i],
+            ),
+            row=i + 1,
+            col=1,
+        )
+    fig_output(fig, output_path + "visible_gnss_sat.html")
+
+
+def plot_gnss_id(data: pd.DataFrame(), m_t: str) -> None:
+    fig = go.Figure()
+    for i in range(12):
+        ch_col_name = "id_ch" + str(i + 1) + "_" + m_t
+        fig.add_trace(go.Scatter(x=data.index, y=data[ch_col_name], name="ch" + str(i + 1)))
+    fig.update_xaxes(title_text="t[s]")
+    fig.update_yaxes(title_text="gnss sat id")
+    suffix = get_suffix(m_t)
+    fig_output(fig, output_path + "gnss_sat_id_" + suffix + ".html")
+
+
+def plot_Q(data, rvat, m_t):
+    # fig = go.Figure()
+    if rvat == "r":
         base_names = ["Qx", "Qy", "Qz"]
         file_name_base = "Q_r"
         unit = "m"
-    elif rva == "v":
+        suffix = get_suffix(m_t)
+    elif rvat == "v":
         base_names = ["Qvx", "Qvy", "Qvz"]
         file_name_base = "Q_v"
         unit = "m/s"
-    else:
+        suffix = get_suffix(m_t)
+    elif rvat == "a":
         base_names = ["Qar", "Qat", "Qan"]
         file_name_base = "Q_acc"
         unit = "nm/s"
+        suffix = get_suffix(m_t)
+    elif rvat == "t":
+        base_names = ["Qt_m", "Qt_t"]
+        file_name_base = "Q_cdt"
+        unit = "m"
+        suffix = ""
+        data_name = base_names
 
-    if m_t == "m":
-        suffix = "main"
-    else:
-        suffix = "target"
-    data_name = [base + "_" + m_t for base in base_names]
+    fig = fig_init(data, base_names, unit=unit)
+
+    if rvat != "t":
+        data_name = [base + "_" + m_t for base in base_names]
+
     for i, name in enumerate(data_name):
-        fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data[name]), name=base_names[i]))
-    fig.update_xaxes(title_text="t[s]")
-    fig.update_yaxes(title_text="Q[" + unit + "]")
+        fig.add_trace(
+            go.Scatter(x=data.index, y=np.sqrt(data[name]), name=base_names[i]),
+            row=i + 1,
+            col=1,
+        )
+    # fig.update_xaxes(title_text="t[s]")
+    # fig.update_yaxes(title_text="Q[" + unit + "]")
     fig_output(fig, output_path + file_name_base + "_" + suffix + ".html")
 
 
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Qt_m"]), name="cdt_m"))
-fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data["Qt_t"]), name="cdt_t"))
-fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$Q[m]$")
-fig_output(fig, output_path + "Q_cdt.html")
+def plot_R(data: pd.DataFrame(), observable: str, m_t: str) -> None:
+    fig = go.Figure()
+    if observable == "GRAPHIC":
+        R_name = "Rgr"
+        suffix = get_suffix(m_t)
+        col_suffix = "_" + m_t
+    elif observable == "SDCP":
+        R_name = "Rcp"
+        suffix = ""
+        col_suffix = ""
 
-fig = go.Figure()
-for i in range(12):
-    col_name = "Rgr" + str(i + 1) + "_m"
-    fig.add_trace(
-        go.Scatter(x=data.index, y=np.sqrt(data[col_name]), name="R GRAPHIC " + str(i + 1))
-    )
-fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$R[m]$")
-fig_output(fig, output_path + "R_GRAPHIC_main.html")
+    for i in range(12):
+        col_name = R_name + str(i + 1) + col_suffix
+        fig.add_trace(
+            go.Scatter(
+                x=data.index, y=np.sqrt(data[col_name]), name="R " + observable + str(i + 1)
+            )
+        )
 
-fig = go.Figure()
-for i in range(12):
-    col_name = "Rgr" + str(i + 1) + "_t"
-    fig.add_trace(
-        go.Scatter(x=data.index, y=np.sqrt(data[col_name]), name="R GRAPHIC " + str(i + 1))
-    )
-fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$R[m]$")
-fig_output(fig, output_path + "R_GRAPHIC_target.html")
+    fig.update_xaxes(title_text="$t[s]$")
+    fig.update_yaxes(title_text="$R[m]$")
+    fig_output(fig, output_path + "R_" + observable + "_" + suffix + ".html")
 
-fig = go.Figure()
-for i in range(12):
-    col_name = "Rcp" + str(i + 1)
-    fig.add_trace(go.Scatter(x=data.index, y=np.sqrt(data[col_name]), name="R SDCP " + str(i + 1)))
-fig.update_xaxes(title_text="$t[s]$")
-fig.update_yaxes(title_text="$R[m]$")
-fig_output(fig, output_path + "R_SDCP.html")
 
 # 受信点の重心からのずれをプロットする．
 def plot_receive_position(data: pd.DataFrame, data_s2e: pd.DataFrame, m_t: str) -> None:
@@ -1493,11 +1440,8 @@ def plot_receive_position(data: pd.DataFrame, data_s2e: pd.DataFrame, m_t: str) 
     for i in range(3):
         diff = data_s2e.loc[:, arp_names[i]] - data.loc[:, pos_names[i]]
         fig.add_trace(go.Scatter(x=data.index, y=diff, name=pos_base_name[i]), row=i + 1, col=1)
-    if m_t == "m":
-        suffix = "main"
-    else:
-        suffix = "target"
-    fig_output(fig, output_path + "arp_diff_" + suffix + ".html")
+
+    fig_output(fig, output_path + "arp_diff_" + get_suffix(m_t) + ".html")
 
 
 def plot_determined_position_precision(
@@ -1517,11 +1461,7 @@ def plot_determined_position_precision(
         diff = data_s2e.loc[:, gnss_pos_names[i]] - data_s2e.loc[:, s2e_pos_names[i]]
         # diff = data_s2e.loc[:,gnss_pos_names[i]] - data.loc[:,pos_names[i]]
         fig.add_trace(go.Scatter(x=data.index, y=diff, name=pos_base_name[i]), row=i + 1, col=1)
-    if m_t == "m":
-        suffix = "main"
-    else:
-        suffix = "target"
-    fig_output(fig, output_path + "navigated_pos_diff_" + suffix + ".html")
+    fig_output(fig, output_path + "navigated_pos_diff_" + get_suffix(m_t) + ".html")
 
 
 def plot_gnss_direction(data, m_t):
@@ -1538,11 +1478,7 @@ def plot_gnss_direction(data, m_t):
                 name="ch " + str(i + 1),
             ),
         )
-
-    if m_t == "m":
-        suffix = "main"
-    else:
-        suffix = "target"
+    suffix = get_suffix(m_t)
     fig_output(fig, output_path + "gnss_observed_direction_" + suffix + ".html")
 
 
@@ -1554,10 +1490,7 @@ def plot_pco(data: pd.DataFrame, m_t: str) -> None:
         fig.add_trace(
             go.Scatter(x=data.index, y=data[col_names[i]], name=pco_base_name[i]), row=i + 1, col=1
         )
-    if m_t == "m":
-        suffix = "main"
-    else:
-        suffix = "target"
+    suffix = get_suffix(m_t)
     fig_output(fig, output_path + "pco_" + suffix + ".html")
 
 
@@ -1573,17 +1506,29 @@ def plot_pcv_grid(pcc_path, out_fname):
     azi_increment = 360 / (num_azi - 1)
     ele_increment = 90 / (num_ele - 1)
 
+    azi = np.arange(0, 365, azi_increment)
+    ele = np.arange(0, 95, ele_increment)
     # azi, ele = np.mgrid[0:365:azi_increment, 90:-5:-ele_increment]
-    azi, ele = np.mgrid[0:365:azi_increment, 0:95:ele_increment]  # mgridですると等分にならないのか？
+    # azi, ele = np.mgrid[0:365:azi_increment, 0:95:ele_increment]
+    azi, ele = np.meshgrid(azi, ele)
+
+    # azi, ele = np.mgrid[0:365:azi_increment, 90:-5:-ele_increment]
+    # ele, azi = np.mgrid[90:-5:-ele_increment, 0:365:azi_increment]
+    # azi, ele = np.mgrid[0:365:azi_increment, 0:95:ele_increment]  # mgridですると等分にならないのか？
     # color = np.fliplr(pcv_df.values)
-    color = pcv_df.values
+    # color = pcv_df.values
+    color = pcv_df.values.T
+    azi = azi.ravel()  # radにする必要はなさそう．
+    ele = ele.ravel()
+    color = color.ravel()
+
     fig.add_trace(
         # px.bar_polar(
         go.Barpolar(
-            r=ele.ravel(),
-            theta=azi.ravel(),
+            r=ele,
+            theta=azi,
             marker=dict(
-                color=color.ravel(),
+                color=color,
                 colorscale="portland",  # viridis
                 colorbar_thickness=24,
                 line_width=0,
@@ -1592,30 +1537,33 @@ def plot_pcv_grid(pcc_path, out_fname):
             ),
             theta0=0,
             # dr=5,
-            # customdata=color.ravel(),
-            hovertext=color.ravel(),
+            # customdata=color,
+            hovertext=color,
             hoverinfo="r+text",
         )
     )
     fig.update_layout(
+        # template=None,
         polar=dict(
             bargap=0,
             radialaxis=dict(
                 # tick0=0,
                 # dtick="L5.0",
-                # ticks="",
-                tickmode="linear",
+                ticks="",
+                # tickmode="linear",
+                showticklabels=False,
                 showgrid=False,
                 showline=False,
                 gridwidth=0,
                 linewidth=0,
                 rangemode="normal",
                 # ticklabelstep=10,
-                # range=(0, 90),
+                # range=[90, 0],
             ),  # type="linear",
             angularaxis=dict(
                 showgrid=False,
                 showline=False,
+                ticks="",
                 # tickmode="linear",
             ),
             hole=0,
@@ -1626,6 +1574,37 @@ def plot_pcv_grid(pcc_path, out_fname):
     )
 
     fig_output(fig, output_path + out_fname + ".html")
+
+
+def plot_pcv_by_matplotlib(pcc_path, out_fname):
+    pcv_df = pd.read_csv(pcc_path, skiprows=1, header=None)
+    num_azi, num_ele = pcv_df.shape
+    azi_increment = 360 / (num_azi - 1)
+    ele_increment = 90 / (num_ele - 1)
+    azi = np.deg2rad(np.arange(0, 365, azi_increment))
+    ele = np.arange(0, 95, ele_increment)
+    # azi, ele = np.mgrid[0:365:azi_increment, 90:-5:-ele_increment]
+    # azi, ele = np.mgrid[0:365:azi_increment, 0:95:ele_increment]
+    azi, ele = np.meshgrid(azi, ele)
+
+    fig = plt.figure()
+    # ax = Axes3D(fig)
+    z = pcv_df.values.T
+    # z = np.fliplr(pcv_df.values)
+
+    # ax = plt.subplot(projection="polar")
+    ax = plt.subplot(polar=True)
+    cmin = -5.0
+    cmax = 9.0
+    pcolor = ax.pcolormesh(azi, ele, z, cmap=cm.jet, norm=Normalize(vmin=cmin, vmax=cmax))
+    colb = fig.colorbar(pcolor, ax=ax, orientation="vertical")
+
+    # plt.grid()
+    # colb.set_label("label", fontname="Arial", fontsize=20)
+
+    plt.savefig(output_path + out_fname + ".jpg", dpi=600)
+    plt.savefig(output_path + out_fname + ".eps")
+    # plt.show()
 
 
 # plot
@@ -1662,8 +1641,8 @@ plot_a(data, "t")
 # plot_a_eci_true(data_s2e_csv, "m")
 # plot_a_rtn_true(data_s2e_csv, "m")
 
-cdt_plot(data, output_path + "cdt")
-cdt_plot(data[data.index % 10 == 9], output_path + "cdt_sparse")
+# cdt_plot(data, output_path + "cdt")
+# cdt_plot(data[data.index % 10 == 9], output_path + "cdt_sparse")
 
 plot_N_precision(data, "m")
 plot_N_precision(data, "t")
@@ -1675,25 +1654,40 @@ plot_N_fix_flag(data, "t")
 # N_plot("m", "e")
 # N_plot("t", "e")
 
-plot_QN(data, "m")
-plot_QN(data, "t")
+plot_R(data, "GRAPHIC", "m")
+plot_R(data, "GRAPHIC", "t")
+plot_R(data, "SDCP", "")
+
+plot_QM_N(data, "Q", "m")
+plot_QM_N(data, "Q", "t")
+plot_QM_N(data, "M", "m")
+plot_QM_N(data, "M", "t")
 plot_Q(data, "r", "m")
 plot_Q(data, "r", "t")
 plot_Q(data, "v", "m")
 plot_Q(data, "v", "t")
+plot_Q(data, "t", "")
 if REDUCE_DYNAMIC:
     plot_Q(data, "a", "m")
     plot_Q(data, "a", "t")
+    plot_Ma(data, "m")
+    plot_Ma(data, "t")
 # plot_receive_position(data, data_s2e_csv, "m")
 # plot_determined_position_precision(data, data_s2e_csv, "m")
 plot_gnss_direction(data, "m")
 plot_gnss_direction(data, "t")
+# plot_visible_gnss_sat(data)
+plot_gnss_id(data, "m")
+plot_gnss_id(data, "t")
 plot_pco(data, "m")
 plot_pco(data, "t")
 
 
 plot_pcv_grid(pcc_log_path, "pcv_true")
-plot_pcv_grid(s2e_debug + "target_pcv.csv", "estimated_target_pcv")
+# plot_pcv_grid(s2e_debug + "target_pcv.csv", "estimated_target_pcv")
+
+plot_pcv_by_matplotlib(pcc_log_path, "pcv_true")
+plot_pcv_by_matplotlib(s2e_debug + "target_pcv.csv", "estimated_target_pcv")
 
 # 最後に全グラフをまとめてコピー
 shutil.move(output_path, copy_dir + "/figure/")
