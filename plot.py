@@ -38,6 +38,7 @@ copy_base_dir = "G:/マイドライブ/Documents/University/lab/Research/FFGNSS/
 sim_config_path = s2e_debug + "readme_new.txt"
 log_path = s2e_debug + "result_new.csv"
 pcc_log_path = s2e_debug + "phase_center_correction.csv"
+pcv_log_path = s2e_debug + "phase_center_variation.csv"
 
 # コピーしたログファイルからグラフ描くとき===========
 # log_base = copy_base_dir + "20221215_101826"  # ここを修正
@@ -1576,9 +1577,8 @@ def plot_pcv_grid(pcc_path, out_fname):
     fig_output(fig, output_path + out_fname + ".html")
 
 
-def plot_pcv_by_matplotlib(pcc_path, out_fname):
-    pcv_df = pd.read_csv(pcc_path, skiprows=1, header=None)
-    num_azi, num_ele = pcv_df.shape
+def plot_phase_center_distribution(pc_df, out_fname, crange):
+    num_azi, num_ele = pc_df.shape
     azi_increment = 360 / (num_azi - 1)
     ele_increment = 90 / (num_ele - 1)
     azi = np.deg2rad(np.arange(0, 365, azi_increment))
@@ -1589,22 +1589,34 @@ def plot_pcv_by_matplotlib(pcc_path, out_fname):
 
     fig = plt.figure()
     # ax = Axes3D(fig)
-    z = pcv_df.values.T
+    z = pc_df.values.T
     # z = np.fliplr(pcv_df.values)
 
     # ax = plt.subplot(projection="polar")
     ax = plt.subplot(polar=True)
-    cmin = -5.0
-    cmax = 9.0
+    cmin, cmax = crange
     pcolor = ax.pcolormesh(azi, ele, z, cmap=cm.jet, norm=Normalize(vmin=cmin, vmax=cmax))
     colb = fig.colorbar(pcolor, ax=ax, orientation="vertical")
 
     # plt.grid()
     # colb.set_label("label", fontname="Arial", fontsize=20)
 
-    plt.savefig(output_path + out_fname + ".jpg", dpi=600)
+    plt.savefig(output_path + out_fname + ".jpg", dpi=900)
     plt.savefig(output_path + out_fname + ".eps")
     # plt.show()
+
+
+def plot_pcv_by_matplotlib(pcc_path, out_fname, crange=(-5.0, 9.0)):
+    pcv_df = pd.read_csv(pcc_path, skiprows=1, header=None)
+    plot_phase_center_distribution(pcv_df, out_fname, crange)
+
+
+def plot_pc_accuracy_by_matplotlib(est_fname, true_fname, out_fname):
+    est_pc_df = pd.read_csv(est_fname, skiprows=1, header=None)
+    true_pc_df = pd.read_csv(true_fname, skiprows=1, header=None)
+    pc_df = est_pc_df - true_pc_df
+    crange = (pc_df.min().min(), pc_df.max().max())
+    plot_phase_center_distribution(pc_df, out_fname, crange)
 
 
 # plot
@@ -1683,11 +1695,16 @@ plot_pco(data, "m")
 plot_pco(data, "t")
 
 
-plot_pcv_grid(pcc_log_path, "pcv_true")
+# plot_pcv_grid(pcc_log_path, "pcv_true")
 # plot_pcv_grid(s2e_debug + "target_pcv.csv", "estimated_target_pcv")
 
-plot_pcv_by_matplotlib(pcc_log_path, "pcv_true")
-plot_pcv_by_matplotlib(s2e_debug + "target_pcv.csv", "estimated_target_pcv")
+plot_pcv_by_matplotlib(pcv_log_path, "pcv_true")
+plot_pcv_by_matplotlib(pcc_log_path, "pcc_true", (-128, 10))
+plot_pcv_by_matplotlib(s2e_debug + "target_antenna_pcv.csv", "estimated_target_pcv")
+plot_pcv_by_matplotlib(s2e_debug + "target_antenna_pcc.csv", "estimated_target_pcc", (-128, 10))
+plot_pc_accuracy_by_matplotlib(
+    s2e_debug + "target_antenna_pcc.csv", pcc_log_path, "target_pcc_accuracy"
+)
 
 # 最後に全グラフをまとめてコピー
 shutil.move(output_path, copy_dir + "/figure/")
