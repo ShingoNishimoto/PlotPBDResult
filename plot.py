@@ -66,7 +66,9 @@ for file in glob(s2e_debug + "*.csv"):
 
 data = pd.read_csv(log_path, header=None)
 
+# この二つはどっかからとってきたいな．
 REDUCE_DYNAMIC = 1
+GNSS_CH_NUM = 12
 
 # true information
 col_true_info = [
@@ -121,305 +123,68 @@ col_residual = [
     "res_vel_t_t",
     "res_vel_n_t",
 ]
-col_ambiguity = [
-    "N1_m_t",
-    "N2_m_t",
-    "N3_m_t",
-    "N4_m_t",
-    "N5_m_t",
-    "N6_m_t",
-    "N7_m_t",
-    "N8_m_t",
-    "N9_m_t",
-    "N10_m_t",
-    "N11_m_t",
-    "N12_m_t",
-    "N1_m_e",
-    "N2_m_e",
-    "N3_m_e",
-    "N4_m_e",
-    "N5_m_e",
-    "N6_m_e",
-    "N7_m_e",
-    "N8_m_e",
-    "N9_m_e",
-    "N10_m_e",
-    "N11_m_e",
-    "N12_m_e",
-    "N1_t_t",
-    "N2_t_t",
-    "N3_t_t",
-    "N4_t_t",
-    "N5_t_t",
-    "N6_t_t",
-    "N7_t_t",
-    "N8_t_t",
-    "N9_t_t",
-    "N10_t_t",
-    "N11_t_t",
-    "N12_t_t",
-    "N1_t_e",
-    "N2_t_e",
-    "N3_t_e",
-    "N4_t_e",
-    "N5_t_e",
-    "N6_t_e",
-    "N7_t_e",
-    "N8_t_e",
-    "N9_t_e",
-    "N10_t_e",
-    "N11_t_e",
-    "N12_t_e",
+col_ambiguity_main = ["N" + str(i + 1) + "_m_t" for i in range(GNSS_CH_NUM)] + [
+    "N" + str(i + 1) + "_m_e" for i in range(GNSS_CH_NUM)
 ]
-col_M = [
-    "Mx_m",
-    "My_m",
-    "Mz_m",
-    "Mt_m",
-    "Mvx_m",
-    "Mvy_m",
-    "Mvz_m",
-    "Mar_m",
-    "Mat_m",
-    "Man_m",
-    "MN1_m",
-    "MN2_m",
-    "MN3_m",
-    "MN4_m",
-    "MN5_m",
-    "MN6_m",
-    "MN7_m",
-    "MN8_m",
-    "MN9_m",
-    "MN10_m",
-    "MN11_m",
-    "MN12_m",
-    "Mx_t",
-    "My_t",
-    "Mz_t",
-    "Mt_t",
-    "Mvx_t",
-    "Mvy_t",
-    "Mvz_t",
-    "Mar_t",
-    "Mat_t",
-    "Man_t",
-    "MN1_t",
-    "MN2_t",
-    "MN3_t",
-    "MN4_t",
-    "MN5_t",
-    "MN6_t",
-    "MN7_t",
-    "MN8_t",
-    "MN9_t",
-    "MN10_t",
-    "MN11_t",
-    "MN12_t",
-    "Mrr_m",
-    "Mrt_m",
-    "Mrn_m",
-    "Mvr_m",
-    "Mvt_m",
-    "Mvn_m",
-    "Mrr_t",
-    "Mrt_t",
-    "Mrn_t",
-    "Mvr_t",
-    "Mvt_t",
-    "Mvn_t",
+col_ambiguity_target = ["N" + str(i + 1) + "_t_t" for i in range(GNSS_CH_NUM)] + [
+    "N" + str(i + 1) + "_t_e" for i in range(GNSS_CH_NUM)
 ]
-col_gnss_dir = [
-    "azi1_m",
-    "azi2_m",
-    "azi3_m",
-    "azi4_m",
-    "azi5_m",
-    "azi6_m",
-    "azi7_m",
-    "azi8_m",
-    "azi9_m",
-    "azi10_m",
-    "azi11_m",
-    "azi12_m",
-    "ele1_m",
-    "ele2_m",
-    "ele3_m",
-    "ele4_m",
-    "ele5_m",
-    "ele6_m",
-    "ele7_m",
-    "ele8_m",
-    "ele9_m",
-    "ele10_m",
-    "ele11_m",
-    "ele12_m",
-    "azi1_t",
-    "azi2_t",
-    "azi3_t",
-    "azi4_t",
-    "azi5_t",
-    "azi6_t",
-    "azi7_t",
-    "azi8_t",
-    "azi9_t",
-    "azi10_t",
-    "azi11_t",
-    "azi12_t",
-    "ele1_t",
-    "ele2_t",
-    "ele3_t",
-    "ele4_t",
-    "ele5_t",
-    "ele6_t",
-    "ele7_t",
-    "ele8_t",
-    "ele9_t",
-    "ele10_t",
-    "ele11_t",
-    "ele12_t",
+col_ambiguity = col_ambiguity_main + col_ambiguity_target
+
+col_MN_main = ["MN" + str(i + 1) + "_m" for i in range(GNSS_CH_NUM)]
+col_MN_target = ["MN" + str(i + 1) + "_t" for i in range(GNSS_CH_NUM)]
+
+col_M = (
+    ["Mx_m", "My_m", "Mz_m", "Mt_m", "Mvx_m", "Mvy_m", "Mvz_m", "Mar_m", "Mat_m", "Man_m"]
+    + col_MN_main
+    + ["Mx_t", "My_t", "Mz_t", "Mt_t", "Mvx_t", "Mvy_t", "Mvz_t", "Mar_t", "Mat_t", "Man_t"]
+    + col_MN_target
+    + [
+        "Mrr_m",
+        "Mrt_m",
+        "Mrn_m",
+        "Mvr_m",
+        "Mvt_m",
+        "Mvn_m",
+        "Mrr_t",
+        "Mrt_t",
+        "Mrn_t",
+        "Mvr_t",
+        "Mvt_t",
+        "Mvn_t",
+    ]
+)
+
+col_gnss_dir_main = ["azi" + str(i + 1) + "_m" for i in range(GNSS_CH_NUM)] + [
+    "ele" + str(i + 1) + "_m" for i in range(GNSS_CH_NUM)
 ]
+col_gnss_dir_target = ["azi" + str(i + 1) + "_t" for i in range(GNSS_CH_NUM)] + [
+    "ele" + str(i + 1) + "_t" for i in range(GNSS_CH_NUM)
+]
+col_gnss_dir = col_gnss_dir_main + col_gnss_dir_target
+
 col_pco = ["pco_x_m", "pco_y_m", "pco_z_m", "pco_x_t", "pco_y_t", "pco_z_t"]
-col_ambiguity_flag = [
-    "N1_m",
-    "N2_m",
-    "N3_m",
-    "N4_m",
-    "N5_m",
-    "N6_m",
-    "N7_m",
-    "N8_m",
-    "N9_m",
-    "N10_m",
-    "N11_m",
-    "N12_m",
-    "N1_t",
-    "N2_t",
-    "N3_t",
-    "N4_t",
-    "N5_t",
-    "N6_t",
-    "N7_t",
-    "N8_t",
-    "N9_t",
-    "N10_t",
-    "N11_t",
-    "N12_t",
+col_ambiguity_flag = ["N" + str(i + 1) + "_m" for i in range(GNSS_CH_NUM)] + [
+    "N" + str(i + 1) + "_t" for i in range(GNSS_CH_NUM)
 ]
+
 data_col = (
     col_true_info
     + col_est_info
     + col_residual
     + col_ambiguity
     + col_M
+    + ["sat_num_main", "sat_num_target", "sat_num_common"]
+    + ["id_ch" + str(i + 1) + "_m" for i in range(GNSS_CH_NUM)]
+    + ["id_ch" + str(i + 1) + "_t" for i in range(GNSS_CH_NUM)]
+    + ["Qx_m", "Qy_m", "Qz_m", "Qt_m", "Qvx_m", "Qvy_m", "Qvz_m", "Qar_m", "Qat_m", "Qan_m"]
+    + ["QN" + str(i + 1) + "_m" for i in range(GNSS_CH_NUM)]
+    + ["Qx_t", "Qy_t", "Qz_t", "Qt_t", "Qvx_t", "Qvy_t", "Qvz_t", "Qar_t", "Qat_t", "Qan_t"]
+    + ["QN" + str(i + 1) + "_t" for i in range(GNSS_CH_NUM)]
+    + ["Rgr" + str(i + 1) + "_m" for i in range(GNSS_CH_NUM)]
+    + ["Rgr" + str(i + 1) + "_t" for i in range(GNSS_CH_NUM)]
+    + ["Rcp" + str(i + 1) for i in range(GNSS_CH_NUM)]
     + [
-        "sat_num_main",
-        "sat_num_target",
-        "sat_num_common",
-        "id_ch1_m",
-        "id_ch2_m",
-        "id_ch3_m",
-        "id_ch4_m",
-        "id_ch5_m",
-        "id_ch6_m",
-        "id_ch7_m",
-        "id_ch8_m",
-        "id_ch9_m",
-        "id_ch10_m",
-        "id_ch11_m",
-        "id_ch12_m",
-        "id_ch1_t",
-        "id_ch2_t",
-        "id_ch3_t",
-        "id_ch4_t",
-        "id_ch5_t",
-        "id_ch6_t",
-        "id_ch7_t",
-        "id_ch8_t",
-        "id_ch9_t",
-        "id_ch10_t",
-        "id_ch11_t",
-        "id_ch12_t",
-        "Qx_m",
-        "Qy_m",
-        "Qz_m",
-        "Qt_m",
-        "Qvx_m",
-        "Qvy_m",
-        "Qvz_m",
-        "Qar_m",
-        "Qat_m",
-        "Qan_m",
-        "QN1_m",
-        "QN2_m",
-        "QN3_m",
-        "QN4_m",
-        "QN5_m",
-        "QN6_m",
-        "QN7_m",
-        "QN8_m",
-        "QN9_m",
-        "QN10_m",
-        "QN11_m",
-        "QN12_m",
-        "Qx_t",
-        "Qy_t",
-        "Qz_t",
-        "Qt_t",
-        "Qvx_t",
-        "Qvy_t",
-        "Qvz_t",
-        "Qar_t",
-        "Qat_t",
-        "Qan_t",
-        "QN1_t",
-        "QN2_t",
-        "QN3_t",
-        "QN4_t",
-        "QN5_t",
-        "QN6_t",
-        "QN7_t",
-        "QN8_t",
-        "QN9_t",
-        "QN10_t",
-        "QN11_t",
-        "QN12_t",
-        "Rgr1_m",
-        "Rgr2_m",
-        "Rgr3_m",
-        "Rgr4_m",
-        "Rgr5_m",
-        "Rgr6_m",
-        "Rgr7_m",
-        "Rgr8_m",
-        "Rgr9_m",
-        "Rgr10_m",
-        "Rgr11_m",
-        "Rgr12_m",
-        "Rgr1_t",
-        "Rgr2_t",
-        "Rgr3_t",
-        "Rgr4_t",
-        "Rgr5_t",
-        "Rgr6_t",
-        "Rgr7_t",
-        "Rgr8_t",
-        "Rgr9_t",
-        "Rgr10_t",
-        "Rgr11_t",
-        "Rgr12_t",
-        "Rcp1",
-        "Rcp2",
-        "Rcp3",
-        "Rcp4",
-        "Rcp5",
-        "Rcp6",
-        "Rcp7",
-        "Rcp8",
-        "Rcp9",
-        "Rcp10",
-        "Rcp11",
-        "Rcp12",
         "ax_m",
         "ay_m",
         "az_m",
@@ -546,14 +311,14 @@ def calc_relinfo(r_v_a, t_e, data):
     return base
 
 
-base = calc_relinfo("r", "t", data)
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=data.index, y=base.iloc[:, 0], name=r"$b_x$"))
-fig.add_trace(go.Scatter(x=data.index, y=base.iloc[:, 1], name=r"$b_y$"))
-fig.add_trace(go.Scatter(x=data.index, y=base.iloc[:, 2], name=r"$b_z$"))
-fig.update_xaxes(title_text="$t[\\text{s}]$")
-fig.update_yaxes(title_text="$b[\\text{m}]$")
-fig_output(fig, output_path + "baseline.html")
+# base = calc_relinfo("r", "t", data)
+# fig = go.Figure()
+# fig.add_trace(go.Scatter(x=data.index, y=base.iloc[:, 0], name=r"$b_x$"))
+# fig.add_trace(go.Scatter(x=data.index, y=base.iloc[:, 1], name=r"$b_y$"))
+# fig.add_trace(go.Scatter(x=data.index, y=base.iloc[:, 2], name=r"$b_z$"))
+# fig.update_xaxes(title_text="$t[\\text{s}]$")
+# fig.update_yaxes(title_text="$b[\\text{m}]$")
+# fig_output(fig, output_path + "baseline.html")
 # fig.show()
 
 
@@ -1025,59 +790,60 @@ def plot_a_rtn_true(data_s2e_log, m_t):
     fig_output(fig, output_path + "a_true_rtn_" + m_t + ".html")
 
 
-# dataをRTNで入れてしまうとここでちゃんとしたプロットができない．
-fig = go.Figure()
-fig.add_trace(
-    go.Scatter3d(
-        x=data["x_m_t"],
-        y=data["y_m_t"],
-        z=data["z_m_t"],
-        name="main",
-        mode="lines",
-        line=dict(width=2, color="red"),
-    )
-)  # , showscale=False
-fig.add_trace(
-    go.Scatter3d(
-        x=data["x_t_t"],
-        y=data["y_t_t"],
-        z=data["z_t_t"],
-        name="target",
-        mode="lines",
-        line=dict(width=2, color="blue"),
-    )
-)  # , showscale=False
-# fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
-fig.update_layout(scene=dict(aspectmode="data"))
-fig_output(fig, output_path + "orbit_3d.html")
+def plot_3d_orbit(data: pd.DataFrame()) -> None:
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter3d(
+            x=data["x_m_t"],
+            y=data["y_m_t"],
+            z=data["z_m_t"],
+            name="main",
+            mode="lines",
+            line=dict(width=2, color="red"),
+        )
+    )  # , showscale=False
+    fig.add_trace(
+        go.Scatter3d(
+            x=data["x_t_t"],
+            y=data["y_t_t"],
+            z=data["z_t_t"],
+            name="target",
+            mode="lines",
+            line=dict(width=2, color="blue"),
+        )
+    )  # , showscale=False
+    # fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
+    fig.update_layout(scene=dict(aspectmode="data"))
+    fig_output(fig, output_path + "orbit_3d.html")
 
-# これはRTNで入れんと変じゃない？
-baseline = calc_relinfo("r", "t", data)
-fig = go.Figure()
-fig.add_trace(
-    go.Scatter3d(
-        x=baseline["x"],
-        y=baseline["y"],
-        z=baseline["z"],
-        name="relative orbit",
-        mode="lines",
-        line=dict(width=2, color="red"),
+
+# 入力データは座標変換後のものにする．
+def plot_3d_relative_orbit(data: pd.DataFrame(), frame: str) -> None:
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter3d(
+            x=data["x"],
+            y=data["y"],
+            z=data["z"],
+            # name="orbit",
+            mode="lines",
+            line=dict(width=2, color="red"),
+        )
+    )  # , showscale=False
+    # sc1
+    fig.add_trace(
+        go.Scatter3d(
+            x=[0],
+            y=[0],
+            z=[0],
+            name="relative orbit",
+            mode="markers",
+            marker=dict(size=2, color="black"),
+        )
     )
-)  # , showscale=False
-# sc1
-fig.add_trace(
-    go.Scatter3d(
-        x=[0],
-        y=[0],
-        z=[0],
-        name="relative orbit",
-        mode="markers",
-        marker=dict(size=2, color="black"),
-    )
-)
-# fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
-fig.update_layout(scene=dict(aspectmode="data"))
-fig_output(fig, output_path + "relative_orbit_3d.html")
+    # fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
+    fig.update_layout(scene=dict(aspectmode="data"))
+    fig_output(fig, output_path + "relative_orbit_3d_" + frame + ".html")
 
 
 def DCM_from_eci_to_lvlh(base_pos_vel):
@@ -1098,37 +864,6 @@ def DCM_from_eci_to_rtn(base_pos_vel):
     t_rtn_i = np.cross(n_rtn_i, r_rtn_i)
     DCM_from_eci_to_rtn = np.array([r_rtn_i, t_rtn_i, n_rtn_i])
     return DCM_from_eci_to_rtn
-
-
-# 時系列データに対して座標変換するの全て変換行列変わるしだるいな．．．最初からLVLHで出したい．．．
-fig = go.Figure()
-for i in range(len(baseline)):
-    DCM = DCM_from_eci_to_lvlh((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
-    baseline.iloc[i, :] = np.dot(DCM, baseline.iloc[i, :])
-fig.add_trace(
-    go.Scatter3d(
-        x=baseline["x"],
-        y=baseline["y"],
-        z=baseline["z"],
-        name="relative orbit",
-        mode="lines",
-        line=dict(width=2, color="red"),
-    )
-)  # , showscale=False
-# sc1
-fig.add_trace(
-    go.Scatter3d(
-        x=[0],
-        y=[0],
-        z=[0],
-        name="relative orbit",
-        mode="markers",
-        marker=dict(size=2, color="black"),
-    )
-)
-# fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
-fig.update_layout(scene=dict(aspectmode="data"))
-fig_output(fig, output_path + "relative_orbit_3d_lvlh.html")
 
 
 def cdt_plot(data, output_name):
@@ -1230,7 +965,7 @@ fig_output(fig, output_path + "dcdt_sparse_precision.html")
 
 def calc_N_precision(data, m_t):
     precision = pd.DataFrame()
-    for i in range(12):
+    for i in range(GNSS_CH_NUM):
         t_col_name = "N" + str(i + 1) + "_" + m_t + "_t"
         e_col_name = "N" + str(i + 1) + "_" + m_t + "_e"
         precision[i + 1] = data[e_col_name] - data[t_col_name]
@@ -1240,7 +975,7 @@ def calc_N_precision(data, m_t):
 def plot_N_precision(data, m_t):
     fig = go.Figure()
     precision = calc_N_precision(data, m_t)
-    for i in range(12):
+    for i in range(GNSS_CH_NUM):
         fig.add_trace(go.Scatter(x=data.index, y=precision[i + 1], name="N" + str(i + 1)))
     fig.update_xaxes(title_text="$t[s]$")
     fig.update_yaxes(title_text="$N[cycle]$")
@@ -1251,13 +986,13 @@ def plot_N_precision(data, m_t):
 def plot_dN_precision(data: pd.DataFrame):
     precision_m = calc_N_precision(data, "m")
     precision_t = calc_N_precision(data, "t")
-    precision = pd.DataFrame(columns=[i + 1 for i in range(12)])
+    precision = pd.DataFrame(columns=[i + 1 for i in range(GNSS_CH_NUM)])
     for row in data.itertuples():
         # このやり方しかないんか？コスト高すぎしんどい．
-        row_array = np.zeros(12)
-        for i in range(12):
+        row_array = np.zeros(GNSS_CH_NUM)
+        for i in range(GNSS_CH_NUM):
             id_m = row._asdict()["id_ch" + str(i + 1) + "_m"]
-            for j in range(12):
+            for j in range(GNSS_CH_NUM):
                 if row._asdict()["id_ch" + str(j + 1) + "_t"] == id_m:
                     row_array[i] = (
                         precision_m.at[row.Index, i + 1] - precision_t.at[row.Index, j + 1]
@@ -1265,7 +1000,7 @@ def plot_dN_precision(data: pd.DataFrame):
                     break
         precision.loc[row.Index] = row_array
     fig = go.Figure()
-    for i in range(12):
+    for i in range(GNSS_CH_NUM):
         fig.add_trace(go.Scatter(x=data.index, y=precision[i + 1], name="dN" + str(i + 1)))
     fig.update_xaxes(title_text="$t[s]$")
     fig.update_yaxes(title_text="$dN[cycle]$")
@@ -1275,7 +1010,7 @@ def plot_dN_precision(data: pd.DataFrame):
 def plot_N_fix_flag(data, m_t):
     precision = pd.DataFrame()
     fig = go.Figure()
-    for i in range(12):
+    for i in range(GNSS_CH_NUM):
         col_name = "N" + str(i + 1) + "_" + m_t
         fig.add_trace(go.Scatter(x=data.index, y=data[col_name], name="N" + str(i + 1)))
     fig.update_xaxes(title_text="$t[s]$")
@@ -1287,7 +1022,7 @@ def plot_N_fix_flag(data, m_t):
 
 def N_plot(m_t: str, t_e: str) -> None:
     fig = go.Figure()
-    for i in range(12):
+    for i in range(GNSS_CH_NUM):
         t_col_name = "N" + str(i + 1) + "_" + m_t + "_" + t_e
         fig.add_trace(go.Scatter(x=data.index, y=data[t_col_name], name="N" + str(i + 1)))
     fig.update_xaxes(title_text=" $t[s]$ ")
@@ -1304,7 +1039,7 @@ def N_plot(m_t: str, t_e: str) -> None:
 def plot_QM_N(data, Q_M, m_t):
     fig = go.Figure()
     out_fname_base = Q_M + "N"
-    for i in range(12):
+    for i in range(GNSS_CH_NUM):
         col_name = out_fname_base + str(i + 1) + "_" + m_t
         fig.add_trace(
             go.Scatter(
@@ -1358,7 +1093,7 @@ def plot_visible_gnss_sat(data: pd.DataFrame()):
 
 def plot_gnss_id(data: pd.DataFrame(), m_t: str) -> None:
     fig = go.Figure()
-    for i in range(12):
+    for i in range(GNSS_CH_NUM):
         ch_col_name = "id_ch" + str(i + 1) + "_" + m_t
         fig.add_trace(go.Scatter(x=data.index, y=data[ch_col_name], name="ch" + str(i + 1)))
     fig.update_xaxes(title_text="t[s]")
@@ -1418,7 +1153,7 @@ def plot_R(data: pd.DataFrame(), observable: str, m_t: str) -> None:
         suffix = ""
         col_suffix = ""
 
-    for i in range(12):
+    for i in range(GNSS_CH_NUM):
         col_name = R_name + str(i + 1) + col_suffix
         fig.add_trace(
             go.Scatter(
@@ -1468,7 +1203,7 @@ def plot_determined_position_precision(
 def plot_gnss_direction(data, m_t):
     fig = px.scatter_polar(range_theta=[0, 360], start_angle=0, direction="counterclockwise")
 
-    for i in range(12):
+    for i in range(GNSS_CH_NUM):
         azi_name = "azi" + str(i + 1) + "_" + m_t
         ele_name = "ele" + str(i + 1) + "_" + m_t
         fig.add_trace(
@@ -1481,6 +1216,33 @@ def plot_gnss_direction(data, m_t):
         )
     suffix = get_suffix(m_t)
     fig_output(fig, output_path + "gnss_observed_direction_" + suffix + ".html")
+
+
+# バグってるのでまた今度実施する．
+def plot_gnss_direction_animation(data: pd.DataFrame(), m_t: str) -> None:
+    fig = px.scatter_polar(range_theta=[0, 360], start_angle=0, direction="counterclockwise")
+
+    data["step"] = data.index
+    # for i in range(GNSS_CH_NUM):
+    i = 0
+    azi_name = "azi" + str(i + 1) + "_" + m_t
+    ele_name = "ele" + str(i + 1) + "_" + m_t
+    zenith_name = "zenith" + str(i + 1) + "_" + m_t
+    data[zenith_name] = 90 - data[ele_name]
+    fig.add_trace(
+        # go.Scatterpolar(
+        px.scatter_polar(
+            data_frame=data,
+            r=zenith_name,
+            theta=azi_name,
+            # mode="markers",
+            # name="ch " + str(i + 1),
+            # hover_data=data.loc[:, azi_name:ele_name],
+            animation_frame="step",
+            animation_group=zenith_name,
+        ),
+    )
+    fig_output(fig, output_path + "gnss_observed_direction_animation_" + get_suffix(m_t) + ".html")
 
 
 def plot_pco(data: pd.DataFrame, m_t: str) -> None:
@@ -1582,7 +1344,8 @@ def plot_phase_center_distribution(pc_df, out_fname, crange):
     azi_increment = 360 / (num_azi - 1)
     ele_increment = 90 / (num_ele - 1)
     azi = np.deg2rad(np.arange(0, 365, azi_increment))
-    ele = np.arange(0, 95, ele_increment)
+    # ele = np.arange(0, 90, ele_increment)
+    ele = np.linspace(0, 5 * (num_ele - 1), num_ele)  # 5°ずつであると仮定
     # azi, ele = np.mgrid[0:365:azi_increment, 90:-5:-ele_increment]
     # azi, ele = np.mgrid[0:365:azi_increment, 0:95:ele_increment]
     azi, ele = np.meshgrid(azi, ele)
@@ -1590,13 +1353,16 @@ def plot_phase_center_distribution(pc_df, out_fname, crange):
     fig = plt.figure()
     # ax = Axes3D(fig)
     z = pc_df.values.T
+    # z = z[:-1, :]
     # z = np.fliplr(pcv_df.values)
 
     # ax = plt.subplot(projection="polar")
     ax = plt.subplot(polar=True)
     cmin, cmax = crange
     pcolor = ax.pcolormesh(azi, ele, z, cmap=cm.jet, norm=Normalize(vmin=cmin, vmax=cmax))
-    colb = fig.colorbar(pcolor, ax=ax, orientation="vertical")
+    c_label = np.linspace(cmin, cmax, 7)
+    # ticksを指定すると0が中心でなくなるので微妙かもしれない．
+    colb = fig.colorbar(pcolor, ax=ax, ticks=np.append(c_label, cmax), orientation="vertical")
 
     # plt.grid()
     # colb.set_label("label", fontname="Arial", fontsize=20)
@@ -1611,15 +1377,26 @@ def plot_pcv_by_matplotlib(pcc_path, out_fname, crange=(-5.0, 9.0)):
     plot_phase_center_distribution(pcv_df, out_fname, crange)
 
 
-def plot_pc_accuracy_by_matplotlib(est_fname, true_fname, out_fname):
+def plot_pc_accuracy_by_matplotlib(est_fname, true_fname, out_fname) -> None:
     est_pc_df = pd.read_csv(est_fname, skiprows=1, header=None)
     true_pc_df = pd.read_csv(true_fname, skiprows=1, header=None)
     pc_df = est_pc_df - true_pc_df
+    pc_df = pc_df.iloc[:, :-1]
+    # crange = (pc_df.iloc[:, :-1].min().min(), pc_df.iloc[:, :-1].max().max())
     crange = (pc_df.min().min(), pc_df.max().max())
     plot_phase_center_distribution(pc_df, out_fname, crange)
 
 
 # plot
+plot_3d_orbit(data)
+baseline = calc_relinfo("r", "t", data)
+plot_3d_relative_orbit(baseline, "eci")
+# lvlh
+for i in range(len(baseline)):
+    DCM = DCM_from_eci_to_lvlh((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
+    baseline.iloc[i, :] = np.dot(DCM, baseline.iloc[i, :])
+plot_3d_relative_orbit(baseline, "lvlh")
+
 plot_precision("r", "m", data)
 plot_precision("r", "t", data)
 plot_precision("v", "m", data)
@@ -1688,6 +1465,7 @@ if REDUCE_DYNAMIC:
 # plot_determined_position_precision(data, data_s2e_csv, "m")
 plot_gnss_direction(data, "m")
 plot_gnss_direction(data, "t")
+# plot_gnss_direction_animation(data, "m")
 # plot_visible_gnss_sat(data)
 plot_gnss_id(data, "m")
 plot_gnss_id(data, "t")
