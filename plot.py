@@ -5,6 +5,7 @@ from asyncio import constants
 from glob import glob
 
 import matplotlib.cm as cm
+import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -68,7 +69,11 @@ data = pd.read_csv(log_path, header=None)
 
 # この二つはどっかからとってきたいな．
 REDUCE_DYNAMIC = 1
-GNSS_CH_NUM = 12
+GNSS_CH_NUM = 15
+SVG_ENABLE = 0
+# 精度評価には最後の1000sくらいのデータを使うようにする．
+# data_offset = len(data) - 1000  # s
+data_offset = 1520  # s 6580(WLS)
 
 # true information
 col_true_info = [
@@ -254,9 +259,9 @@ s2e_data_col += [col + ".1" for col in s2e_data_col]
 data_s2e_csv = pd.read_csv(s2e_csv_log_path)
 
 
-def fig_init(data, names, unit):
+def fig_init(data, names, unit) -> go.Figure():
     fig = make_subplots(
-        rows=len(names), cols=1, shared_xaxes=True, vertical_spacing=0.02
+        rows=len(names), cols=1, shared_xaxes=True, vertical_spacing=0.03  # , shared_yaxes=True
     )  # subplot_titles=tuple(base_names)
     fig.update_layout(
         plot_bgcolor="white", font=dict(size=20, family="Times New Roman"), width=1200, height=700
@@ -283,8 +288,11 @@ def fig_init(data, names, unit):
     return fig
 
 
-def fig_output(fig, name):
-    fig.write_html(name, include_mathjax="cdn")
+def fig_output(fig: go.Figure(), name: str) -> None:
+    fig.write_html(name + ".html", include_mathjax="cdn")
+    # fig.write_image(name + ".eps")
+    if SVG_ENABLE:
+        fig.write_image(name + ".svg")
 
 
 def calc_relinfo(r_v_a, t_e, data):
@@ -318,17 +326,13 @@ def calc_relinfo(r_v_a, t_e, data):
 # fig.add_trace(go.Scatter(x=data.index, y=base.iloc[:, 2], name=r"$b_z$"))
 # fig.update_xaxes(title_text="$t[\\text{s}]$")
 # fig.update_yaxes(title_text="$b[\\text{m}]$")
-# fig_output(fig, output_path + "baseline.html")
+# fig_output(fig, output_path + "baseline")
 # fig.show()
 
 
 def trans_eci2rtn(position, velocity):
     DCM_eci_to_rtn = 1
 
-
-# 精度評価には最後の1000sくらいのデータを使うようにする．
-# data_offset = len(data) - 1000  # s
-data_offset = 600  # s
 
 # 後でちゃんと実装する．
 def generate_fig_3axis_precision(
@@ -444,7 +448,7 @@ def plot_precision(r_v_a, m_t, data):
         )
         # fig.update_layout(yaxis=dict(title_text=r"$\delta$" + name +"[" + unit + "]"))
     # fig.update_layout(plot_bgcolor="#f5f5f5", paper_bgcolor="white", legend_tracegroupgap = 180, font=dict(size=15)) # lightgray
-    filename = r_v_a + "_eci_precision_" + suffix + ".html"
+    filename = r_v_a + "_eci_precision_" + suffix
     fig_output(fig, output_path + filename)
 
 
@@ -466,18 +470,21 @@ def plot_precision_rtn(r_v_a, m_t, data):
         scale_param = 1
         output_name = "position_rtn"
         M_names_base = ["Mrr", "Mrt", "Mrn"]
+        y_range = 2.5
     elif r_v_a == "v":
         col_base_name = "res_vel_"
         unit = "mm/s"
         scale_param = 1000
         output_name = "velocity_rtn"
         M_names_base = ["Mvr", "Mvt", "Mvn"]
+        y_range = 5.0
     elif r_v_a == "a":
         col_names = ["ar", "at", "an"]
         unit = "um/s^2"
         scale_param = 1
         output_name = "a_rtn"
         M_names_base = ["Mar", "Mat", "Man"]
+        y_range = 20.0  # ホンマはautoにしたい．
     else:
         print("false input")
         return
@@ -530,7 +537,12 @@ def plot_precision_rtn(r_v_a, m_t, data):
             row=(i + 1),
             col=1,
         )
-    fig_output(fig, output_path + output_name + "_precision_" + suffix + ".html")
+        fig.update_yaxes(
+            range=(-y_range, y_range),
+            row=(i + 1),
+            col=1,
+        )
+    fig_output(fig, output_path + output_name + "_precision_" + suffix)
 
 
 def plot_differential_precision(
@@ -539,10 +551,11 @@ def plot_differential_precision(
     if r_v_a == "r":
         base_names = ["x", "y", "z"]
         axis_names = ["r_r", "r_t", "r_n"]
-        unit = "m"
-        scale_param = 1
+        unit = "cm"
+        scale_param = 100
         output_name = "relative_position"
         M_names = ["Mrr", "Mrt", "Mrn"]
+        y_range = 0.2 * scale_param
     elif r_v_a == "v":
         base_names = ["vx", "vy", "vz"]
         axis_names = ["v_r", "v_t", "v_n"]
@@ -550,6 +563,7 @@ def plot_differential_precision(
         scale_param = 1000
         output_name = "relative_velocity"
         M_names = ["Mvr", "Mvt", "Mvn"]
+        y_range = 3.5
     elif r_v_a == "a":
         base_names = ["ar", "at", "an"]
         unit = "um/s^2"
@@ -557,6 +571,7 @@ def plot_differential_precision(
         axis_names = ["a_r", "a_t", "a_n"]
         output_name = "relative_a"
         M_names = ["Mar", "Mat", "Man"]
+        y_range = 2.4
     else:
         print("input error!")
         return
@@ -614,8 +629,12 @@ def plot_differential_precision(
             row=(i + 1),
             col=1,
         )
-    # fig.update_layout(plot_bgcolor="#f5f5f5", paper_bgcolor="white", showlegend=True, legend_tracegroupgap = 200, font=dict(size=15)) # lightgray
-    fig_output(fig, output_path + output_name + "_precision.html")
+        fig.update_yaxes(
+            range=(-y_range, y_range),
+            row=(i + 1),
+            col=1,
+        )
+    fig_output(fig, output_path + output_name + "_precision")
 
 
 def plot_a(data, m_t):
@@ -638,7 +657,7 @@ def plot_a(data, m_t):
         )
     # fig.update_xaxes(title_text="t[s]")
     # fig.update_yaxes(title_text="acc[nm/s2]")
-    fig_output(fig, output_path + "a_emp_est_" + m_t + ".html")
+    fig_output(fig, output_path + "a_emp_est_" + m_t)
 
 
 # 加速度の精度
@@ -705,7 +724,7 @@ def plot_a_eci(data, m_t):
             row=i + 1,
             col=1,
         )
-    fig_output(fig, output_path + "a_emp_eci_" + m_t + ".html")
+    fig_output(fig, output_path + "a_emp_eci_" + m_t)
 
 
 def plot_a_dist(data, m_t, frame):
@@ -730,7 +749,7 @@ def plot_a_dist(data, m_t, frame):
             row=i + 1,
             col=1,
         )
-    fig_output(fig, output_path + "a_dist_" + frame + "_" + m_t + ".html")
+    fig_output(fig, output_path + "a_dist_" + frame + "_" + m_t)
 
 
 # これは外乱成分のみの加速度，2体問題のやつは除外されている．
@@ -759,7 +778,7 @@ def plot_a_eci_true(data_s2e_log, m_t):
             row=i + 1,
             col=1,
         )
-    fig_output(fig, output_path + "a_true_eci_" + m_t + ".html")
+    fig_output(fig, output_path + "a_true_eci_" + m_t)
 
 
 def plot_a_rtn_true(data_s2e_log, m_t):
@@ -787,7 +806,7 @@ def plot_a_rtn_true(data_s2e_log, m_t):
             row=i + 1,
             col=1,
         )
-    fig_output(fig, output_path + "a_true_rtn_" + m_t + ".html")
+    fig_output(fig, output_path + "a_true_rtn_" + m_t)
 
 
 def plot_3d_orbit(data: pd.DataFrame()) -> None:
@@ -814,7 +833,7 @@ def plot_3d_orbit(data: pd.DataFrame()) -> None:
     )  # , showscale=False
     # fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
     fig.update_layout(scene=dict(aspectmode="data"))
-    fig_output(fig, output_path + "orbit_3d.html")
+    fig_output(fig, output_path + "orbit_3d")
 
 
 # 入力データは座標変換後のものにする．
@@ -843,7 +862,7 @@ def plot_3d_relative_orbit(data: pd.DataFrame(), frame: str) -> None:
     )
     # fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1), zaxis=dict(scaleanchor="x", scaleratio=1))
     fig.update_layout(scene=dict(aspectmode="data"))
-    fig_output(fig, output_path + "relative_orbit_3d_" + frame + ".html")
+    fig_output(fig, output_path + "relative_orbit_3d_" + frame)
 
 
 def DCM_from_eci_to_lvlh(base_pos_vel):
@@ -894,7 +913,7 @@ def cdt_plot(data, output_name):
             row=i + 1,
             col=1,
         )
-    fig_output(fig, output_name + ".html")
+    fig_output(fig, output_name)
 
 
 def calc_cdt_sparse_precision(data):
@@ -948,7 +967,7 @@ for i in range(len(t_names)):
         row=i + 1,
         col=1,
     )
-fig_output(fig, output_path + "cdt_sparse_precision.html")
+fig_output(fig, output_path + "cdt_sparse_precision")
 
 cdt_precision.loc[:, "dcdt"] = cdt_precision.loc[:, t_names[1]] - cdt_precision.loc[:, t_names[0]]
 fig = fig_init(cdt_precision, ["\Delta c\delta t"], unit="m")
@@ -960,7 +979,7 @@ fig.add_trace(
         marker=dict(size=2, color="red"),
     ),
 )
-fig_output(fig, output_path + "dcdt_sparse_precision.html")
+fig_output(fig, output_path + "dcdt_sparse_precision")
 
 
 def calc_N_precision(data, m_t):
@@ -980,7 +999,7 @@ def plot_N_precision(data, m_t):
     fig.update_xaxes(title_text="$t[s]$")
     fig.update_yaxes(title_text="$N[cycle]$")
     suffix = get_suffix(m_t)
-    fig_output(fig, output_path + "N_precision_" + suffix + ".html")
+    fig_output(fig, output_path + "N_precision_" + suffix)
 
 
 def plot_dN_precision(data: pd.DataFrame):
@@ -1004,7 +1023,7 @@ def plot_dN_precision(data: pd.DataFrame):
         fig.add_trace(go.Scatter(x=data.index, y=precision[i + 1], name="dN" + str(i + 1)))
     fig.update_xaxes(title_text="$t[s]$")
     fig.update_yaxes(title_text="$dN[cycle]$")
-    fig_output(fig, output_path + "dN_precision" + ".html")
+    fig_output(fig, output_path + "dN_precision")
 
 
 def plot_N_fix_flag(data, m_t):
@@ -1017,7 +1036,7 @@ def plot_N_fix_flag(data, m_t):
     fig.update_yaxes(title_text="is_fixed")
     suffix = get_suffix(m_t)
 
-    fig_output(fig, output_path + "N_is_fixed_" + suffix + ".html")
+    fig_output(fig, output_path + "N_is_fixed_" + suffix)
 
 
 def N_plot(m_t: str, t_e: str) -> None:
@@ -1033,7 +1052,7 @@ def N_plot(m_t: str, t_e: str) -> None:
         suffix1 = "est"
     suffix2 = get_suffix(m_t)
 
-    fig_output(fig, output_path + "N_" + suffix1 + "_" + suffix2 + ".html")
+    fig_output(fig, output_path + "N_" + suffix1 + "_" + suffix2)
 
 
 def plot_QM_N(data, Q_M, m_t):
@@ -1050,7 +1069,7 @@ def plot_QM_N(data, Q_M, m_t):
     fig.update_yaxes(title_text="$" + Q_M + "[cycle]$")
     suffix = get_suffix(m_t)
 
-    fig_output(fig, output_path + out_fname_base + "_" + suffix + ".html")
+    fig_output(fig, output_path + out_fname_base + "_" + suffix)
 
 
 def plot_Ma(data, m_t):
@@ -1070,7 +1089,7 @@ def plot_Ma(data, m_t):
             row=i + 1,
             col=1,
         )
-    fig_output(fig, output_path + "Ma_emp_" + get_suffix(m_t) + ".html")
+    fig_output(fig, output_path + "Ma_emp_" + get_suffix(m_t))
 
 
 def plot_visible_gnss_sat(data: pd.DataFrame()):
@@ -1088,7 +1107,7 @@ def plot_visible_gnss_sat(data: pd.DataFrame()):
             row=i + 1,
             col=1,
         )
-    fig_output(fig, output_path + "visible_gnss_sat.html")
+    fig_output(fig, output_path + "visible_gnss_sat")
 
 
 def plot_gnss_id(data: pd.DataFrame(), m_t: str) -> None:
@@ -1099,7 +1118,7 @@ def plot_gnss_id(data: pd.DataFrame(), m_t: str) -> None:
     fig.update_xaxes(title_text="t[s]")
     fig.update_yaxes(title_text="gnss sat id")
     suffix = get_suffix(m_t)
-    fig_output(fig, output_path + "gnss_sat_id_" + suffix + ".html")
+    fig_output(fig, output_path + "gnss_sat_id_" + suffix)
 
 
 def plot_Q(data, rvat, m_t):
@@ -1139,7 +1158,7 @@ def plot_Q(data, rvat, m_t):
         )
     # fig.update_xaxes(title_text="t[s]")
     # fig.update_yaxes(title_text="Q[" + unit + "]")
-    fig_output(fig, output_path + file_name_base + "_" + suffix + ".html")
+    fig_output(fig, output_path + file_name_base + "_" + suffix)
 
 
 def plot_R(data: pd.DataFrame(), observable: str, m_t: str) -> None:
@@ -1163,7 +1182,7 @@ def plot_R(data: pd.DataFrame(), observable: str, m_t: str) -> None:
 
     fig.update_xaxes(title_text="$t[s]$")
     fig.update_yaxes(title_text="$R[m]$")
-    fig_output(fig, output_path + "R_" + observable + "_" + suffix + ".html")
+    fig_output(fig, output_path + "R_" + observable + "_" + suffix)
 
 
 # 受信点の重心からのずれをプロットする．
@@ -1177,7 +1196,7 @@ def plot_receive_position(data: pd.DataFrame, data_s2e: pd.DataFrame, m_t: str) 
         diff = data_s2e.loc[:, arp_names[i]] - data.loc[:, pos_names[i]]
         fig.add_trace(go.Scatter(x=data.index, y=diff, name=pos_base_name[i]), row=i + 1, col=1)
 
-    fig_output(fig, output_path + "arp_diff_" + get_suffix(m_t) + ".html")
+    fig_output(fig, output_path + "arp_diff_" + get_suffix(m_t))
 
 
 def plot_determined_position_precision(
@@ -1197,7 +1216,7 @@ def plot_determined_position_precision(
         diff = data_s2e.loc[:, gnss_pos_names[i]] - data_s2e.loc[:, s2e_pos_names[i]]
         # diff = data_s2e.loc[:,gnss_pos_names[i]] - data.loc[:,pos_names[i]]
         fig.add_trace(go.Scatter(x=data.index, y=diff, name=pos_base_name[i]), row=i + 1, col=1)
-    fig_output(fig, output_path + "navigated_pos_diff_" + get_suffix(m_t) + ".html")
+    fig_output(fig, output_path + "navigated_pos_diff_" + get_suffix(m_t))
 
 
 def plot_gnss_direction(data, m_t):
@@ -1215,7 +1234,7 @@ def plot_gnss_direction(data, m_t):
             ),
         )
     suffix = get_suffix(m_t)
-    fig_output(fig, output_path + "gnss_observed_direction_" + suffix + ".html")
+    fig_output(fig, output_path + "gnss_observed_direction_" + suffix)
 
 
 # バグってるのでまた今度実施する．
@@ -1242,7 +1261,7 @@ def plot_gnss_direction_animation(data: pd.DataFrame(), m_t: str) -> None:
             animation_group=zenith_name,
         ),
     )
-    fig_output(fig, output_path + "gnss_observed_direction_animation_" + get_suffix(m_t) + ".html")
+    fig_output(fig, output_path + "gnss_observed_direction_animation_" + get_suffix(m_t))
 
 
 def plot_pco(data: pd.DataFrame, m_t: str) -> None:
@@ -1254,7 +1273,7 @@ def plot_pco(data: pd.DataFrame, m_t: str) -> None:
             go.Scatter(x=data.index, y=data[col_names[i]], name=pco_base_name[i]), row=i + 1, col=1
         )
     suffix = get_suffix(m_t)
-    fig_output(fig, output_path + "pco_" + suffix + ".html")
+    fig_output(fig, output_path + "pco_" + suffix)
 
 
 def plot_pcv_grid(pcc_path, out_fname):
@@ -1336,10 +1355,10 @@ def plot_pcv_grid(pcc_path, out_fname):
         hovermode="closest",
     )
 
-    fig_output(fig, output_path + out_fname + ".html")
+    fig_output(fig, output_path + out_fname)
 
 
-def plot_phase_center_distribution(pc_df, out_fname, crange):
+def plot_phase_center_distribution(pc_df, out_fname, crange, norm=None, cmap=cm.jet):
     num_azi, num_ele = pc_df.shape
     azi_increment = 360 / (num_azi - 1)
     ele_increment = 90 / (num_ele - 1)
@@ -1359,10 +1378,14 @@ def plot_phase_center_distribution(pc_df, out_fname, crange):
     # ax = plt.subplot(projection="polar")
     ax = plt.subplot(polar=True)
     cmin, cmax = crange
-    pcolor = ax.pcolormesh(azi, ele, z, cmap=cm.jet, norm=Normalize(vmin=cmin, vmax=cmax))
+    if not norm:
+        norm = Normalize(vmin=cmin, vmax=cmax)
+    pcolor = ax.pcolormesh(azi, ele, z, cmap=cmap, norm=norm)
+    # pcolor = ax.pcolormesh(azi, ele, z, cmap=cm.jet, norm=colors.TwoSlopeNorm(0))
     c_label = np.linspace(cmin, cmax, 7)
     # ticksを指定すると0が中心でなくなるので微妙かもしれない．
-    colb = fig.colorbar(pcolor, ax=ax, ticks=np.append(c_label, cmax), orientation="vertical")
+    # colb = fig.colorbar(pcolor, ax=ax, ticks=np.append(c_label, cmax), orientation="vertical")
+    colb = fig.colorbar(pcolor, ax=ax, orientation="vertical")
 
     # plt.grid()
     # colb.set_label("label", fontname="Arial", fontsize=20)
@@ -1381,21 +1404,28 @@ def plot_pc_accuracy_by_matplotlib(est_fname, true_fname, out_fname) -> None:
     est_pc_df = pd.read_csv(est_fname, skiprows=1, header=None)
     true_pc_df = pd.read_csv(true_fname, skiprows=1, header=None)
     pc_df = est_pc_df - true_pc_df
-    pc_df = pc_df.iloc[:, :-1]
-    # crange = (pc_df.iloc[:, :-1].min().min(), pc_df.iloc[:, :-1].max().max())
-    crange = (pc_df.min().min(), pc_df.max().max())
-    plot_phase_center_distribution(pc_df, out_fname, crange)
+    pc_df = pc_df.iloc[:, :-2]
+
+    # for two slope plot ++++++++++++++++++++++++++++++++++++
+    # crange = (pc_df.min().min(), pc_df.max().max())
+    # plot_phase_center_distribution(pc_df, out_fname, crange, colors.TwoSlopeNorm(0), cm.bwr)
+
+    # for fix range +++++++++++++++++++++++++++++++++++++++++
+    crange = (-3, 3)
+    plot_phase_center_distribution(
+        pc_df, out_fname, crange, Normalize(vmin=crange[0], vmax=crange[1]), cm.bwr
+    )
 
 
-# plot
-plot_3d_orbit(data)
-baseline = calc_relinfo("r", "t", data)
-plot_3d_relative_orbit(baseline, "eci")
-# lvlh
-for i in range(len(baseline)):
-    DCM = DCM_from_eci_to_lvlh((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
-    baseline.iloc[i, :] = np.dot(DCM, baseline.iloc[i, :])
-plot_3d_relative_orbit(baseline, "lvlh")
+# # plot
+# plot_3d_orbit(data)
+# baseline = calc_relinfo("r", "t", data)
+# plot_3d_relative_orbit(baseline, "eci")
+# # lvlh
+# for i in range(len(baseline)):
+#     DCM = DCM_from_eci_to_lvlh((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
+#     baseline.iloc[i, :] = np.dot(DCM, baseline.iloc[i, :])
+# plot_3d_relative_orbit(baseline, "lvlh")
 
 plot_precision("r", "m", data)
 plot_precision("r", "t", data)
@@ -1480,6 +1510,9 @@ plot_pcv_by_matplotlib(pcv_log_path, "pcv_true")
 plot_pcv_by_matplotlib(pcc_log_path, "pcc_true", (-128, 10))
 plot_pcv_by_matplotlib(s2e_debug + "target_antenna_pcv.csv", "estimated_target_pcv")
 plot_pcv_by_matplotlib(s2e_debug + "target_antenna_pcc.csv", "estimated_target_pcc", (-128, 10))
+plot_pc_accuracy_by_matplotlib(
+    s2e_debug + "target_antenna_pcv.csv", pcv_log_path, "target_pcv_accuracy"
+)
 plot_pc_accuracy_by_matplotlib(
     s2e_debug + "target_antenna_pcc.csv", pcc_log_path, "target_pcc_accuracy"
 )
