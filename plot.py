@@ -42,13 +42,16 @@ pcc_log_path = s2e_debug + "phase_center_correction.csv"
 pcv_log_path = s2e_debug + "phase_center_variation.csv"
 
 # コピーしたログファイルからグラフ描くとき===========
-# log_base = copy_base_dir + "20221215_101826"  # ここを修正
-# sim_config_path = log_base + "/readme.txt"
-# log_path = log_base + "/result.csv"
-# s2e_log_dir = log_base + "/s2e_logs"
+# log_base = copy_base_dir + "20221227_145949_after_PCO_WLS_3h/"  # ここを修正
+# sim_config_path = log_base + "readme.txt"
+# log_path = log_base + "result_new.csv"
+# s2e_log_dir = log_base + "s2e_logs/"
 # s2e_csv_log_path = (
-#     s2e_log_dir + "/" + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]
+#     s2e_log_dir + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]
 # )
+# pcc_log_path = log_base + "phase_center_correction.csv"
+# pcv_log_path = log_base + "phase_center_variation.csv"
+# s2e_debug = log_base
 # ================================================
 
 # 実行時にメモ残すようにするといいかも
@@ -73,7 +76,7 @@ GNSS_CH_NUM = 15
 SVG_ENABLE = 0
 # 精度評価には最後の1000sくらいのデータを使うようにする．
 # data_offset = len(data) - 1000  # s
-data_offset = 1520  # s 6580(WLS)
+data_offset = 6580  # s 6580(WLS)
 
 # true information
 col_true_info = [
@@ -555,7 +558,7 @@ def plot_differential_precision(
         scale_param = 100
         output_name = "relative_position"
         M_names = ["Mrr", "Mrt", "Mrn"]
-        y_range = 0.2 * scale_param
+        y_range = 0.18 * scale_param
     elif r_v_a == "v":
         base_names = ["vx", "vy", "vz"]
         axis_names = ["v_r", "v_t", "v_n"]
@@ -602,33 +605,34 @@ def plot_differential_precision(
             row=(i + 1),
             col=1,
         )
-        M_name_m = M_names[i] + "_m"
-        M_name_t = M_names[i] + "_t"
-        dM_name = "d" + M_names[i]
-        data[dM_name] = data[M_name_m] + data[M_name_t]
-        fig.add_trace(
-            go.Scatter(
-                x=data.index,
-                y=np.sqrt(data[dM_name]) * scale_param,
-                name="1 sigma",
-                legendgroup=str(i),
-                line=dict(width=1, color="black"),
-                showlegend=False,
-            ),
-            row=(i + 1),
-            col=1,
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=data.index,
-                y=-np.sqrt(data[dM_name]) * scale_param,
-                legendgroup=str(i),
-                line=dict(width=1, color="black"),
-                showlegend=False,
-            ),
-            row=(i + 1),
-            col=1,
-        )
+        # 分散のところは絶対的な状態量から出しているもので正確ではないのでplotしない．
+        # M_name_m = M_names[i] + "_m"
+        # M_name_t = M_names[i] + "_t"
+        # dM_name = "d" + M_names[i]
+        # data[dM_name] = data[M_name_m] + data[M_name_t]
+        # fig.add_trace(
+        #     go.Scatter(
+        #         x=data.index,
+        #         y=np.sqrt(data[dM_name]) * scale_param,
+        #         name="1 sigma",
+        #         legendgroup=str(i),
+        #         line=dict(width=1, color="black"),
+        #         showlegend=False,
+        #     ),
+        #     row=(i + 1),
+        #     col=1,
+        # )
+        # fig.add_trace(
+        #     go.Scatter(
+        #         x=data.index,
+        #         y=-np.sqrt(data[dM_name]) * scale_param,
+        #         legendgroup=str(i),
+        #         line=dict(width=1, color="black"),
+        #         showlegend=False,
+        #     ),
+        #     row=(i + 1),
+        #     col=1,
+        # )
         fig.update_yaxes(
             range=(-y_range, y_range),
             row=(i + 1),
@@ -1392,6 +1396,7 @@ def plot_phase_center_distribution(pc_df, out_fname, crange, norm=None, cmap=cm.
 
     plt.savefig(output_path + out_fname + ".jpg", dpi=900)
     plt.savefig(output_path + out_fname + ".eps")
+    plt.savefig(output_path + out_fname + ".pdf")
     # plt.show()
 
 
