@@ -42,7 +42,7 @@ pcc_log_path = s2e_debug + "phase_center_correction.csv"
 pcv_log_path = s2e_debug + "phase_center_variation.csv"
 
 # コピーしたログファイルからグラフ描くとき===========
-# log_base = copy_base_dir + "20221227_145949_after_PCO_WLS_3h/"  # ここを修正
+# log_base = copy_base_dir + "20221228_205514/"  # ここを修正
 # sim_config_path = log_base + "readme.txt"
 # log_path = log_base + "result_new.csv"
 # s2e_log_dir = log_base + "s2e_logs/"
@@ -1235,8 +1235,16 @@ def plot_gnss_direction(data, m_t):
                 theta=data[azi_name],
                 mode="markers",
                 name="ch " + str(i + 1),
+                marker=dict(color="blue", size=1),
+                showlegend=False,
+                # dr=15,
             ),
         )
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(dtick=15),
+        )
+    )
     suffix = get_suffix(m_t)
     fig_output(fig, output_path + "gnss_observed_direction_" + suffix)
 
@@ -1402,6 +1410,7 @@ def plot_phase_center_distribution(pc_df, out_fname, crange, norm=None, cmap=cm.
 
 def plot_pcv_by_matplotlib(pcc_path, out_fname, crange=(-5.0, 9.0)):
     pcv_df = pd.read_csv(pcc_path, skiprows=1, header=None)
+    pcv_df = pcv_df.iloc[:, :-1]  # 90 - 5 degまで
     plot_phase_center_distribution(pcv_df, out_fname, crange)
 
 
@@ -1409,7 +1418,7 @@ def plot_pc_accuracy_by_matplotlib(est_fname, true_fname, out_fname) -> None:
     est_pc_df = pd.read_csv(est_fname, skiprows=1, header=None)
     true_pc_df = pd.read_csv(true_fname, skiprows=1, header=None)
     pc_df = est_pc_df - true_pc_df
-    pc_df = pc_df.iloc[:, :-2]
+    pc_df = pc_df.iloc[:, :-1]  # 90 - 5 degまで
 
     # for two slope plot ++++++++++++++++++++++++++++++++++++
     # crange = (pc_df.min().min(), pc_df.max().max())
