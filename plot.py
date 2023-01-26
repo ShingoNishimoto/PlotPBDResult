@@ -29,28 +29,29 @@ def get_latest_modified_file_path(dirname):
 s2e_dir = "../../s2e_pbd/"
 s2e_log_path_base = s2e_dir + "data/logs"
 s2e_debug = s2e_dir + "CMakeBuilds/Debug/"
-s2e_log_dir = get_latest_modified_file_path(s2e_log_path_base)
+s2e_log_dir = get_latest_modified_file_path(s2e_log_path_base) + "/"
 s2e_csv_log_path = (
-    s2e_log_dir + "/" + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]
+    s2e_log_dir + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]
 )
 # ここは適宜修正する．
-# copy_base_dir = "/mnt/g/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
+copy_base_dir = "/mnt/g/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
 copy_base_dir = "G:/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
-sim_config_path = s2e_debug + "readme_new.txt"
-log_path = s2e_debug + "result_new.csv"
-pcc_log_path = s2e_debug + "phase_center_correction.csv"
-pcv_log_path = s2e_debug + "phase_center_variation.csv"
+sim_config_path = s2e_log_dir + "readme.txt"
+log_path = s2e_log_dir + "result.csv"
+pcc_log_path = s2e_log_dir + "pcc_1.csv"
+pcv_log_path = s2e_log_dir + "pcv_1.csv"
 
-# コピーしたログファイルからグラフ描くとき===========
-# log_base = copy_base_dir + "20221228_205514/"  # ここを修正
+# # # コピーしたログファイルからグラフ描くとき===========
+# log_base = copy_base_dir + "202301_thesis_IAR/20230124_100149_w_IAR_wo_PCCerror/"  # ここを修正
+# #  log_base = "D:\Documents\Project\S2E\s2e_pbd\data\logs\logs_230124_163128/"
 # sim_config_path = log_base + "readme.txt"
-# log_path = log_base + "result_new.csv"
-# s2e_log_dir = log_base + "s2e_logs/"
+# log_path = log_base + "result.csv"
+# s2e_log_dir = log_base
 # s2e_csv_log_path = (
-#     s2e_log_dir + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]
+#     s2e_log_dir + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]  # バグりそう．
 # )
-# pcc_log_path = log_base + "phase_center_correction.csv"
-# pcv_log_path = log_base + "phase_center_variation.csv"
+# pcc_log_path = log_base + "pcc_1.csv"
+# pcv_log_path = log_base + "pcv_1.csv"
 # s2e_debug = log_base
 # ================================================
 
@@ -59,24 +60,26 @@ pcv_log_path = s2e_debug + "phase_center_variation.csv"
 output_path = "figure/"
 os.makedirs(output_path, exist_ok=True)
 dt_now = datetime.datetime.now()
-copy_dir = copy_base_dir + dt_now.strftime("%Y%m%d_%H%M%S")
-os.mkdir(copy_dir)
-# os.mkdir(copy_dir + '/figure')
-shutil.copyfile(sim_config_path, copy_dir + "/readme.txt")
-shutil.copytree(get_latest_modified_file_path(s2e_log_path_base), copy_dir + "/s2e_logs")
+copy_dir = copy_base_dir + dt_now.strftime("%Y%m%d_%H%M%S") + "/"
+# os.mkdir(copy_dir) # treeでcopyするので必要なし
+shutil.copytree(s2e_log_dir, copy_dir, ignore=shutil.ignore_patterns("figure"))
+accuracy_file = copy_dir + "accuracies.txt"
 # 独自csvをすべてコピー．
-for file in glob(s2e_debug + "*.csv"):
-    shutil.copy(file, copy_dir)
+# for file in glob(s2e_debug + "*.csv"):
+#     shutil.copy(file, copy_dir)
 
 data = pd.read_csv(log_path, header=None)
+accuracy_log = pd.DataFrame(columns=["name", "axis", "unit", "value"])  # ここに計算した精度を入れていく．
 
 # この二つはどっかからとってきたいな．
 REDUCE_DYNAMIC = 1
 GNSS_CH_NUM = 15
-SVG_ENABLE = 0
+SVG_ENABLE = 1
+PCV = 1
 # 精度評価には最後の1000sくらいのデータを使うようにする．
 # data_offset = len(data) - 1000  # s
-data_offset = 6580  # s 6580(WLS)
+data_offset = 4430  # s 6970(WLS)
+x_axis_scale = 1.0 / 3600  # sec -> hour
 
 # true information
 col_true_info = [
@@ -118,18 +121,18 @@ col_est_info = [
     "an_t_e",
 ]
 col_residual = [
-    "res_pos_r_m",
-    "res_pos_t_m",
-    "res_pos_n_m",
-    "res_vel_r_m",
-    "res_vel_t_m",
-    "res_vel_n_m",
-    "res_pos_r_t",
-    "res_pos_t_t",
-    "res_pos_n_t",
-    "res_vel_r_t",
-    "res_vel_t_t",
-    "res_vel_n_t",
+    "res_pos_R_m",
+    "res_pos_T_m",
+    "res_pos_N_m",
+    "res_vel_R_m",
+    "res_vel_T_m",
+    "res_vel_N_m",
+    "res_pos_R_t",
+    "res_pos_T_t",
+    "res_pos_N_t",
+    "res_vel_R_t",
+    "res_vel_T_t",
+    "res_vel_N_t",
 ]
 col_ambiguity_main = ["N" + str(i + 1) + "_m_t" for i in range(GNSS_CH_NUM)] + [
     "N" + str(i + 1) + "_m_e" for i in range(GNSS_CH_NUM)
@@ -261,20 +264,35 @@ s2e_data_col += [col + ".1" for col in s2e_data_col]
 # data_s2e_csv = pd.read_csv(s2e_csv_log_path, usecols=s2e_data_col) # ログの頻度を合わせて回すこと！
 data_s2e_csv = pd.read_csv(s2e_csv_log_path)
 
-
+# FIXME この辺はクラス化したい．
 def fig_init(data, names, unit) -> go.Figure():
     fig = make_subplots(
         rows=len(names), cols=1, shared_xaxes=True, vertical_spacing=0.03  # , shared_yaxes=True
     )  # subplot_titles=tuple(base_names)
     fig.update_layout(
-        plot_bgcolor="white", font=dict(size=20, family="Times New Roman"), width=1200, height=700
+        plot_bgcolor="white",
+        font=dict(size=20, family="Times New Roman"),
+        width=1200,
+        height=700,
+        legend=dict(
+            x=0.53,
+            y=0.99,
+            xanchor="left",
+            yanchor="top",
+            font=dict(size=13),
+            bordercolor="black",
+            borderwidth=1,
+            orientation="h",
+            itemsizing="constant",
+        ),
+        margin=dict(t=1, b=1, l=1, r=1),
     )
     for i, name in enumerate(names):
         fig.update_xaxes(
             linecolor="black",
             gridcolor="silver",
             mirror=True,
-            range=(data.index[0], data.index[-1]),
+            range=(0, data.index[-1] * x_axis_scale),
             row=(i + 1),
         )
         axis_name = "$" + name + "[" + unit + "]$"
@@ -287,11 +305,14 @@ def fig_init(data, names, unit) -> go.Figure():
             title=dict(text=axis_name, standoff=2),
             row=(i + 1),
         )
-    fig.update_xaxes(title_text="$t[\\text{s}]$", row=len(names))
+    fig.update_xaxes(title_text="$t[\\text{hours}]$", row=len(names))
     return fig
 
 
 def fig_output(fig: go.Figure(), name: str) -> None:
+    fig.update_layout(
+        margin=dict(t=1, b=1, l=1, r=1),
+    )
     fig.write_html(name + ".html", include_mathjax="cdn")
     # fig.write_image(name + ".eps")
     if SVG_ENABLE:
@@ -347,7 +368,7 @@ def generate_fig_3axis_precision(
         fig.add_trace(
             go.Scatter(
                 mode="markers",
-                x=data_for_plot.index,
+                x=data_for_plot.index * x_axis_scale,
                 y=data_for_plot.loc[:, col_names[i]],
                 name="RMS:" + "{:.3f}".format(RMS) + "[" + unit + "]",
                 legendgroup=str(i + 1),
@@ -359,7 +380,7 @@ def generate_fig_3axis_precision(
         # 1 sigmaを計算してプロットする．
         fig.add_trace(
             go.Scatter(
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=np.sqrt(data[M_names[i]]) * scale_param,
                 legendgroup=str(i),
                 line=dict(width=1, color="black"),
@@ -370,7 +391,7 @@ def generate_fig_3axis_precision(
         )
         fig.add_trace(
             go.Scatter(
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=-np.sqrt(data[M_names[i]]) * scale_param,
                 legendgroup=str(i),
                 line=dict(width=1, color="black"),
@@ -380,6 +401,40 @@ def generate_fig_3axis_precision(
             col=1,
         )
     return fig
+
+
+# 3drmsを含めてしまいたいが
+def add_accuracy(precision: pd.DataFrame(), name: str, axis: str, unit: str) -> None:
+    global accuracy_log
+    accuracy_log = accuracy_log.append(
+        {"name": name + "_" + "mean", "axis": axis, "unit": unit, "value": precision.mean()},
+        ignore_index=True,
+    )
+    accuracy_log = accuracy_log.append(
+        {"name": name + "_" + "std", "axis": axis, "unit": unit, "value": precision.std()},
+        ignore_index=True,
+    )
+    accuracy_log = accuracy_log.append(
+        {
+            "name": name + "_" + "rms",
+            "axis": axis,
+            "unit": unit,
+            "value": np.sqrt(np.mean(precision**2)),
+        },
+        ignore_index=True,
+    )
+
+
+def add_3d_rms(precision: pd.DataFrame(), name: str, axes: list, unit: str) -> None:
+    global accuracy_log
+    _3d_ms = 0
+    for axis in axes:
+        _3d_ms += np.mean(precision[axis] ** 2)
+    _3d_rms = np.sqrt(_3d_ms)
+    accuracy_log = accuracy_log.append(
+        {"name": name + "_" + "3drms", "axis": "", "unit": unit, "value": _3d_rms},
+        ignore_index=True,
+    )
 
 
 def plot_precision(r_v_a, m_t, data):
@@ -404,20 +459,20 @@ def plot_precision(r_v_a, m_t, data):
 
     suffix = get_suffix(m_t)
     precision = pd.DataFrame()
-    # fig = go.Figure()
     fig = fig_init(data=data, names=axis_names, unit=unit)
     colors = ["red", "blue", "green"]
     for i, name in enumerate(base_names):
         est_name = name + "_" + m_t + "_e"
         true_name = name + "_" + m_t + "_t"
         precision[name] = (data[est_name] - data[true_name]) * scale_param
-        RMS = np.sqrt(np.mean(precision.loc[data_offset:, name] ** 2))
+        add_accuracy(precision.loc[data_offset:, name], r_v_a + "_" + m_t, name, unit)
+        RMS = np.sqrt(np.mean(precision.loc[data_offset:, name] ** 2))  # ここで再計算するのか？
         fig.add_trace(
             go.Scatter(
                 mode="markers",
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=precision[name],
-                name="RMS:" + "{:.2f}".format(RMS) + "[" + unit + "]",
+                name="$" + name + ":" + "{:.3f}".format(RMS) + "(\\text{" + unit + "})$",
                 legendgroup=str(i),
                 marker=dict(size=2, color=colors[i]),
                 showlegend=True,
@@ -428,7 +483,7 @@ def plot_precision(r_v_a, m_t, data):
         M_name = "M" + name + "_" + m_t
         fig.add_trace(
             go.Scatter(
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=np.sqrt(data[M_name]) * scale_param,
                 name="1 sigma",
                 legendgroup=str(i),
@@ -440,7 +495,7 @@ def plot_precision(r_v_a, m_t, data):
         )
         fig.add_trace(
             go.Scatter(
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=-np.sqrt(data[M_name]) * scale_param,
                 legendgroup=str(i),
                 line=dict(width=1, color="black"),
@@ -450,6 +505,7 @@ def plot_precision(r_v_a, m_t, data):
             col=1,
         )
         # fig.update_layout(yaxis=dict(title_text=r"$\delta$" + name +"[" + unit + "]"))
+    add_3d_rms(precision.loc[data_offset:, :], r_v_a + "_" + m_t, base_names, unit)
     # fig.update_layout(plot_bgcolor="#f5f5f5", paper_bgcolor="white", legend_tracegroupgap = 180, font=dict(size=15)) # lightgray
     filename = r_v_a + "_eci_precision_" + suffix
     fig_output(fig, output_path + filename)
@@ -492,7 +548,7 @@ def plot_precision_rtn(r_v_a, m_t, data):
         print("false input")
         return
 
-    frame_names = ["r", "t", "n"]
+    frame_names = ["R", "T", "N"]
     if r_v_a != "a":
         col_names = [col_base_name + frame + "_" + m_t for frame in frame_names]
 
@@ -503,14 +559,18 @@ def plot_precision_rtn(r_v_a, m_t, data):
     M_names = [M_name_base + "_" + m_t for M_name_base in M_names_base]
     fig = fig_init(data, names, unit)
     colors = ["red", "blue", "green"]
+
     for i in range(len(names)):
+        add_accuracy(
+            data_for_plot.loc[data_offset:, col_names[i]], r_v_a + "_" + m_t, col_names[i], unit
+        )
         RMS = np.sqrt(np.mean(data_for_plot.loc[data_offset:, col_names[i]] ** 2))
         fig.add_trace(
             go.Scatter(
                 mode="markers",
-                x=data_for_plot.index,
+                x=data_for_plot.index * x_axis_scale,
                 y=data_for_plot.loc[:, col_names[i]],
-                name="RMS:" + "{:.3f}".format(RMS) + "[" + unit + "]",
+                name="$" + names[i] + ":" + "{:.3f}".format(RMS) + "(\\text{" + unit + "})$",
                 legendgroup=str(i + 1),
                 marker=dict(size=2, color=colors[i]),
             ),
@@ -520,7 +580,7 @@ def plot_precision_rtn(r_v_a, m_t, data):
         # 1 sigmaを計算してプロットする．
         fig.add_trace(
             go.Scatter(
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=np.sqrt(data[M_names[i]]) * scale_param,
                 legendgroup=str(i),
                 line=dict(width=1, color="black"),
@@ -531,7 +591,7 @@ def plot_precision_rtn(r_v_a, m_t, data):
         )
         fig.add_trace(
             go.Scatter(
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=-np.sqrt(data[M_names[i]]) * scale_param,
                 legendgroup=str(i),
                 line=dict(width=1, color="black"),
@@ -545,6 +605,15 @@ def plot_precision_rtn(r_v_a, m_t, data):
             row=(i + 1),
             col=1,
         )
+    add_3d_rms(data_for_plot.loc[data_offset:, :], r_v_a + "_" + m_t, col_names, unit)
+    # fig.add_trace(
+    #     go.Scatter(
+    #         x=[],
+    #         y=[],
+    #         name="3D:" + "{:.3f}".format(_3drms) + "(RMS) [" + unit + "]",
+    #         legendgroup=str(len(names) + 1),
+    #     )
+    # )
     fig_output(fig, output_path + output_name + "_precision_" + suffix)
 
 
@@ -553,7 +622,7 @@ def plot_differential_precision(
 ) -> None:
     if r_v_a == "r":
         base_names = ["x", "y", "z"]
-        axis_names = ["r_r", "r_t", "r_n"]
+        axis_names = ["r_R", "r_T", "r_N"]
         unit = "cm"
         scale_param = 100
         output_name = "relative_position"
@@ -561,7 +630,7 @@ def plot_differential_precision(
         y_range = 0.18 * scale_param
     elif r_v_a == "v":
         base_names = ["vx", "vy", "vz"]
-        axis_names = ["v_r", "v_t", "v_n"]
+        axis_names = ["v_R", "v_T", "v_N"]
         unit = "mm/s"
         scale_param = 1000
         output_name = "relative_velocity"
@@ -571,10 +640,10 @@ def plot_differential_precision(
         base_names = ["ar", "at", "an"]
         unit = "um/s^2"
         scale_param = 1
-        axis_names = ["a_r", "a_t", "a_n"]
+        axis_names = ["a_R", "a_T", "a_N"]
         output_name = "relative_a"
         M_names = ["Mar", "Mat", "Man"]
-        y_range = 2.4
+        y_range = 0.2  # 2.4
     else:
         print("input error!")
         return
@@ -592,13 +661,14 @@ def plot_differential_precision(
             precision_data.iloc[i, :] = np.dot(DCM, precision_data.iloc[i, :])
 
     for i in range(len(base_names)):
+        add_accuracy(precision_data.iloc[data_offset:, i], names[i], base_names[i], unit)
         RMS = np.sqrt(np.mean(precision_data.iloc[data_offset:, i] ** 2))
         fig.add_trace(
             go.Scatter(
                 mode="markers",
-                x=precision_data.index,
+                x=precision_data.index * x_axis_scale,
                 y=precision_data.iloc[:, i],
-                name="RMS:" + "{:.3f}".format(RMS) + "[" + unit + "]",
+                name="$" + names[i] + ":" + "{:.3f}".format(RMS) + "(\\text{" + unit + "})$",
                 legendgroup=str(i + 1),
                 marker=dict(size=2, color=colors[i]),
             ),
@@ -606,38 +676,20 @@ def plot_differential_precision(
             col=1,
         )
         # 分散のところは絶対的な状態量から出しているもので正確ではないのでplotしない．
-        # M_name_m = M_names[i] + "_m"
-        # M_name_t = M_names[i] + "_t"
-        # dM_name = "d" + M_names[i]
-        # data[dM_name] = data[M_name_m] + data[M_name_t]
-        # fig.add_trace(
-        #     go.Scatter(
-        #         x=data.index,
-        #         y=np.sqrt(data[dM_name]) * scale_param,
-        #         name="1 sigma",
-        #         legendgroup=str(i),
-        #         line=dict(width=1, color="black"),
-        #         showlegend=False,
-        #     ),
-        #     row=(i + 1),
-        #     col=1,
-        # )
-        # fig.add_trace(
-        #     go.Scatter(
-        #         x=data.index,
-        #         y=-np.sqrt(data[dM_name]) * scale_param,
-        #         legendgroup=str(i),
-        #         line=dict(width=1, color="black"),
-        #         showlegend=False,
-        #     ),
-        #     row=(i + 1),
-        #     col=1,
-        # )
         fig.update_yaxes(
             range=(-y_range, y_range),
             row=(i + 1),
             col=1,
         )
+    add_3d_rms(precision_data.loc[data_offset:, :], "d" + r_v_a, base_names, unit)
+    # fig.add_trace(
+    #     go.Scatter(
+    #         x=[],
+    #         y=[],
+    #         name="3D:" + "{:.3f}".format(_3drms) + "(RMS) [" + unit + "]",
+    #         legendgroup=str(len(base_names) + 1),
+    #     )
+    # )
     fig_output(fig, output_path + output_name + "_precision")
 
 
@@ -651,7 +703,7 @@ def plot_a(data, m_t):
         fig.add_trace(
             go.Scatter(
                 mode="markers",
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=data[a_names[i]] * scale_factor,
                 name=a_names[i],
                 marker=dict(size=2, color="red"),
@@ -720,7 +772,7 @@ def plot_a_eci(data, m_t):
         fig.add_trace(
             go.Scatter(
                 mode="markers",
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=data[a_names[i]] * scale_factor,
                 name=a_base_names[i],
                 marker=dict(size=2, color="red"),
@@ -745,7 +797,7 @@ def plot_a_dist(data, m_t, frame):
         fig.add_trace(
             go.Scatter(
                 mode="markers",
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=data[a_names[i]] * 1e3,
                 name=a_base_names[i],
                 marker=dict(size=2, color="red"),
@@ -774,7 +826,7 @@ def plot_a_eci_true(data_s2e_log, m_t):
         fig.add_trace(
             go.Scatter(
                 mode="markers",
-                x=a_t.index,
+                x=a_t.index * x_axis_scale,
                 y=a_t[a_base_names[i]],
                 name=a_base_names[i],
                 marker=dict(size=2, color="red"),
@@ -802,7 +854,7 @@ def plot_a_rtn_true(data_s2e_log, m_t):
         fig.add_trace(
             go.Scatter(
                 mode="markers",
-                x=a_t.index,
+                x=a_t.index * x_axis_scale,
                 y=a_t[a_base_names[i]],
                 name=a_base_names[i],
                 marker=dict(size=2, color="red"),
@@ -813,6 +865,7 @@ def plot_a_rtn_true(data_s2e_log, m_t):
     fig_output(fig, output_path + "a_true_rtn_" + m_t)
 
 
+# 今後3d用の初期化関数も用意する．ECIで書くときは地球くらい書きたい．
 def plot_3d_orbit(data: pd.DataFrame()) -> None:
     fig = go.Figure()
     fig.add_trace(
@@ -899,7 +952,7 @@ def cdt_plot(data, output_name):
         data_est_key = "t_" + suffix[i] + "_e"
         fig.add_trace(
             go.Scatter(
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=data[data_true_key],
                 name=names[i] + "_t",
                 line=dict(width=2, color="black"),
@@ -909,7 +962,7 @@ def cdt_plot(data, output_name):
         )
         fig.add_trace(
             go.Scatter(
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=data[data_est_key],
                 name=names[i] + "_e",
                 line=dict(width=2, color="red"),
@@ -941,7 +994,7 @@ fig = fig_init(data, axis_names, unit="m")
 for i in range(len(t_names)):
     fig.add_trace(
         go.Scatter(
-            x=cdt_precision.index,
+            x=cdt_precision.index * x_axis_scale,
             y=(cdt_precision[t_names[i]]),
             name=t_names[i],
             mode="markers",
@@ -953,17 +1006,17 @@ for i in range(len(t_names)):
     M_name = "Mt_" + suffix[i]
     fig.add_trace(
         go.Scatter(
-            x=cdt_precision.index,
+            x=cdt_precision.index * x_axis_scale,
             y=np.sqrt(cdt_precision[M_name]),
             line=dict(width=1, color="black"),
-            name="1 sigma",
+            name="$1 \sigma$",
         ),
         row=i + 1,
         col=1,
     )
     fig.add_trace(
         go.Scatter(
-            x=cdt_precision.index,
+            x=cdt_precision.index * x_axis_scale,
             y=-np.sqrt(cdt_precision[M_name]),
             line=dict(width=1, color="black"),
             showlegend=False,
@@ -977,7 +1030,7 @@ cdt_precision.loc[:, "dcdt"] = cdt_precision.loc[:, t_names[1]] - cdt_precision.
 fig = fig_init(cdt_precision, ["\Delta c\delta t"], unit="m")
 fig.add_trace(
     go.Scatter(
-        x=cdt_precision.index,
+        x=cdt_precision.index * x_axis_scale,
         y=(cdt_precision["dcdt"]),
         mode="markers",
         marker=dict(size=2, color="red"),
@@ -996,12 +1049,13 @@ def calc_N_precision(data, m_t):
 
 
 def plot_N_precision(data, m_t):
-    fig = go.Figure()
+    fig = fig_init(data, ["N"], "cycle")
     precision = calc_N_precision(data, m_t)
     for i in range(GNSS_CH_NUM):
-        fig.add_trace(go.Scatter(x=data.index, y=precision[i + 1], name="N" + str(i + 1)))
-    fig.update_xaxes(title_text="$t[s]$")
-    fig.update_yaxes(title_text="$N[cycle]$")
+        fig.add_trace(
+            go.Scatter(x=data.index * x_axis_scale, y=precision[i + 1], name="N" + str(i + 1))
+        )
+
     suffix = get_suffix(m_t)
     fig_output(fig, output_path + "N_precision_" + suffix)
 
@@ -1022,34 +1076,40 @@ def plot_dN_precision(data: pd.DataFrame):
                     )
                     break
         precision.loc[row.Index] = row_array
-    fig = go.Figure()
+    names = ["dN"]
+    unit = "cycle"
+    fig = fig_init(data, names, unit)
     for i in range(GNSS_CH_NUM):
-        fig.add_trace(go.Scatter(x=data.index, y=precision[i + 1], name="dN" + str(i + 1)))
-    fig.update_xaxes(title_text="$t[s]$")
-    fig.update_yaxes(title_text="$dN[cycle]$")
+        fig.add_trace(
+            go.Scatter(x=data.index * x_axis_scale, y=precision[i + 1], name="dN" + str(i + 1))
+        )
+
     fig_output(fig, output_path + "dN_precision")
 
 
 def plot_N_fix_flag(data, m_t):
     precision = pd.DataFrame()
-    fig = go.Figure()
+    names = ["is_fixed"]
+    unit = "True/False"
+    fig = fig_init(data, names, unit)
     for i in range(GNSS_CH_NUM):
         col_name = "N" + str(i + 1) + "_" + m_t
         fig.add_trace(go.Scatter(x=data.index, y=data[col_name], name="N" + str(i + 1)))
-    fig.update_xaxes(title_text="$t[s]$")
-    fig.update_yaxes(title_text="is_fixed")
+
     suffix = get_suffix(m_t)
 
     fig_output(fig, output_path + "N_is_fixed_" + suffix)
 
 
+# main, targetまとめてよさそう？
 def N_plot(m_t: str, t_e: str) -> None:
-    fig = go.Figure()
+    fig = fig_init(data, ["N"], "cycle")
     for i in range(GNSS_CH_NUM):
         t_col_name = "N" + str(i + 1) + "_" + m_t + "_" + t_e
-        fig.add_trace(go.Scatter(x=data.index, y=data[t_col_name], name="N" + str(i + 1)))
-    fig.update_xaxes(title_text=" $t[s]$ ")
-    fig.update_yaxes(title_text=" $N[cycle]$ ")
+        fig.add_trace(
+            go.Scatter(x=data.index * x_axis_scale, y=data[t_col_name], name="N" + str(i + 1))
+        )
+
     if t_e == "t":
         suffix1 = "true"
     else:
@@ -1060,17 +1120,18 @@ def N_plot(m_t: str, t_e: str) -> None:
 
 
 def plot_QM_N(data, Q_M, m_t):
-    fig = go.Figure()
+    fig = fig_init(data, Q_M, cycle)
     out_fname_base = Q_M + "N"
     for i in range(GNSS_CH_NUM):
         col_name = out_fname_base + str(i + 1) + "_" + m_t
         fig.add_trace(
             go.Scatter(
-                x=data.index, y=np.sqrt(data[col_name]), name="$" + Q_M + "_{N" + str(i + 1) + "}$"
+                x=data.index * x_axis_scale,
+                y=np.sqrt(data[col_name]),
+                name="$" + Q_M + "_{N" + str(i + 1) + "}$",
             )
         )
-    fig.update_xaxes(title_text="$t[s]$")
-    fig.update_yaxes(title_text="$" + Q_M + "[cycle]$")
+
     suffix = get_suffix(m_t)
 
     fig_output(fig, output_path + out_fname_base + "_" + suffix)
@@ -1085,7 +1146,7 @@ def plot_Ma(data, m_t):
         fig.add_trace(
             go.Scatter(
                 mode="markers",
-                x=data.index,
+                x=data.index * x_axis_scale,
                 y=np.sqrt(data[Ma_names[i]]),
                 name=Ma_base_names[i],
                 marker=dict(size=2, color="red"),
@@ -1097,15 +1158,14 @@ def plot_Ma(data, m_t):
 
 
 def plot_visible_gnss_sat(data: pd.DataFrame()):
-    fig = go.Figure()
     names = ["main", "target", "common"]
-    fig = fig_init(data, names, unit="nm/s2")
+    fig = fig_init(data, names, unit="")
     for i in range(3):
         fig.add_trace(
             go.Scatter(
                 mode="lines",
-                x=data.index,
-                y=np.sqrt(data["sat_num_" + names[i]]),
+                x=data.index * x_axis_scale,
+                y=data["sat_num_" + names[i]],
                 name=names[i],
             ),
             row=i + 1,
@@ -1115,18 +1175,17 @@ def plot_visible_gnss_sat(data: pd.DataFrame()):
 
 
 def plot_gnss_id(data: pd.DataFrame(), m_t: str) -> None:
-    fig = go.Figure()
+    fig = fig_init(data, ["gnss sat id"], "")
     for i in range(GNSS_CH_NUM):
         ch_col_name = "id_ch" + str(i + 1) + "_" + m_t
-        fig.add_trace(go.Scatter(x=data.index, y=data[ch_col_name], name="ch" + str(i + 1)))
-    fig.update_xaxes(title_text="t[s]")
-    fig.update_yaxes(title_text="gnss sat id")
+        fig.add_trace(
+            go.Scatter(x=data.index * x_axis_scale, y=data[ch_col_name], name="ch" + str(i + 1))
+        )
     suffix = get_suffix(m_t)
     fig_output(fig, output_path + "gnss_sat_id_" + suffix)
 
 
 def plot_Q(data, rvat, m_t):
-    # fig = go.Figure()
     if rvat == "r":
         base_names = ["Qx", "Qy", "Qz"]
         file_name_base = "Q_r"
@@ -1156,7 +1215,7 @@ def plot_Q(data, rvat, m_t):
 
     for i, name in enumerate(data_name):
         fig.add_trace(
-            go.Scatter(x=data.index, y=np.sqrt(data[name]), name=base_names[i]),
+            go.Scatter(x=data.index * x_axis_scale, y=np.sqrt(data[name]), name=base_names[i]),
             row=i + 1,
             col=1,
         )
@@ -1166,7 +1225,6 @@ def plot_Q(data, rvat, m_t):
 
 
 def plot_R(data: pd.DataFrame(), observable: str, m_t: str) -> None:
-    fig = go.Figure()
     if observable == "GRAPHIC":
         R_name = "Rgr"
         suffix = get_suffix(m_t)
@@ -1176,16 +1234,17 @@ def plot_R(data: pd.DataFrame(), observable: str, m_t: str) -> None:
         suffix = ""
         col_suffix = ""
 
+    fig = fig_init(data, ["R"], "m")
     for i in range(GNSS_CH_NUM):
         col_name = R_name + str(i + 1) + col_suffix
         fig.add_trace(
             go.Scatter(
-                x=data.index, y=np.sqrt(data[col_name]), name="R " + observable + str(i + 1)
+                x=data.index * x_axis_scale,
+                y=np.sqrt(data[col_name]),
+                name="R " + observable + str(i + 1),
             )
         )
 
-    fig.update_xaxes(title_text="$t[s]$")
-    fig.update_yaxes(title_text="$R[m]$")
     fig_output(fig, output_path + "R_" + observable + "_" + suffix)
 
 
@@ -1198,7 +1257,11 @@ def plot_receive_position(data: pd.DataFrame, data_s2e: pd.DataFrame, m_t: str) 
     fig = fig_init(data, pos_base_name, "m")
     for i in range(3):
         diff = data_s2e.loc[:, arp_names[i]] - data.loc[:, pos_names[i]]
-        fig.add_trace(go.Scatter(x=data.index, y=diff, name=pos_base_name[i]), row=i + 1, col=1)
+        fig.add_trace(
+            go.Scatter(x=data.index * x_axis_scale, y=diff, name=pos_base_name[i]),
+            row=i + 1,
+            col=1,
+        )
 
     fig_output(fig, output_path + "arp_diff_" + get_suffix(m_t))
 
@@ -1219,7 +1282,11 @@ def plot_determined_position_precision(
     for i in range(3):
         diff = data_s2e.loc[:, gnss_pos_names[i]] - data_s2e.loc[:, s2e_pos_names[i]]
         # diff = data_s2e.loc[:,gnss_pos_names[i]] - data.loc[:,pos_names[i]]
-        fig.add_trace(go.Scatter(x=data.index, y=diff, name=pos_base_name[i]), row=i + 1, col=1)
+        fig.add_trace(
+            go.Scatter(x=data.index * x_axis_scale, y=diff, name=pos_base_name[i]),
+            row=i + 1,
+            col=1,
+        )
     fig_output(fig, output_path + "navigated_pos_diff_" + get_suffix(m_t))
 
 
@@ -1243,7 +1310,8 @@ def plot_gnss_direction(data, m_t):
     fig.update_layout(
         polar=dict(
             radialaxis=dict(dtick=15),
-        )
+        ),
+        margin=dict(t=1, b=1, l=1, r=1),
     )
     suffix = get_suffix(m_t)
     fig_output(fig, output_path + "gnss_observed_direction_" + suffix)
@@ -1282,7 +1350,9 @@ def plot_pco(data: pd.DataFrame, m_t: str) -> None:
     col_names = [base + "_" + m_t for base in pco_base_name]
     for i in range(len(pco_base_name)):
         fig.add_trace(
-            go.Scatter(x=data.index, y=data[col_names[i]], name=pco_base_name[i]), row=i + 1, col=1
+            go.Scatter(x=data.index * x_axis_scale, y=data[col_names[i]], name=pco_base_name[i]),
+            row=i + 1,
+            col=1,
         )
     suffix = get_suffix(m_t)
     fig_output(fig, output_path + "pco_" + suffix)
@@ -1402,30 +1472,29 @@ def plot_phase_center_distribution(pc_df, out_fname, crange, norm=None, cmap=cm.
     # plt.grid()
     # colb.set_label("label", fontname="Arial", fontsize=20)
 
-    plt.savefig(output_path + out_fname + ".jpg", dpi=900)
-    plt.savefig(output_path + out_fname + ".eps")
-    plt.savefig(output_path + out_fname + ".pdf")
+    plt.savefig(output_path + out_fname + ".jpg", dpi=900, bbox_inches="tight", pad_inches=0)
+    plt.savefig(output_path + out_fname + ".eps", bbox_inches="tight", pad_inches=0)
+    # plt.savefig(output_path + out_fname + ".pdf", bbox_inches="tight", pad_inches=0)
     # plt.show()
 
 
 def plot_pcv_by_matplotlib(pcc_path, out_fname, crange=(-5.0, 9.0)):
     pcv_df = pd.read_csv(pcc_path, skiprows=1, header=None)
-    pcv_df = pcv_df.iloc[:, :-1]  # 90 - 5 degまで
+    # pcv_df = pcv_df.iloc[:, :-1]  # 90 - 5 degまで <- trueは全plotした方がいいな．
     plot_phase_center_distribution(pcv_df, out_fname, crange)
 
 
-def plot_pc_accuracy_by_matplotlib(est_fname, true_fname, out_fname) -> None:
+def plot_pc_accuracy_by_matplotlib(est_fname, true_fname, out_fname, crange=(-5, 5)) -> None:
     est_pc_df = pd.read_csv(est_fname, skiprows=1, header=None)
     true_pc_df = pd.read_csv(true_fname, skiprows=1, header=None)
     pc_df = est_pc_df - true_pc_df
-    pc_df = pc_df.iloc[:, :-1]  # 90 - 5 degまで
+    # pc_df = pc_df.iloc[:, :-1]  # 90 - 5 degまで
 
     # for two slope plot ++++++++++++++++++++++++++++++++++++
     # crange = (pc_df.min().min(), pc_df.max().max())
     # plot_phase_center_distribution(pc_df, out_fname, crange, colors.TwoSlopeNorm(0), cm.bwr)
 
     # for fix range +++++++++++++++++++++++++++++++++++++++++
-    crange = (-3, 3)
     plot_phase_center_distribution(
         pc_df, out_fname, crange, Normalize(vmin=crange[0], vmax=crange[1]), cm.bwr
     )
@@ -1433,36 +1502,39 @@ def plot_pc_accuracy_by_matplotlib(est_fname, true_fname, out_fname) -> None:
 
 # # plot
 # plot_3d_orbit(data)
-# baseline = calc_relinfo("r", "t", data)
+baseline = calc_relinfo("r", "t", data)
 # plot_3d_relative_orbit(baseline, "eci")
-# # lvlh
-# for i in range(len(baseline)):
-#     DCM = DCM_from_eci_to_lvlh((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
-#     baseline.iloc[i, :] = np.dot(DCM, baseline.iloc[i, :])
-# plot_3d_relative_orbit(baseline, "lvlh")
+# lvlh
+for i in range(len(baseline)):
+    DCM = DCM_from_eci_to_lvlh((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
+    baseline.iloc[i, :] = np.dot(DCM, baseline.iloc[i, :])
+plot_3d_relative_orbit(baseline, "lvlh")
 
-plot_precision("r", "m", data)
-plot_precision("r", "t", data)
-plot_precision("v", "m", data)
-plot_precision("v", "t", data)
+# plot_precision("r", "m", data)
+# plot_precision("r", "t", data)
+# plot_precision("v", "m", data)
+# plot_precision("v", "t", data)
 plot_precision_rtn("r", "m", data)
 plot_precision_rtn("r", "t", data)
 plot_precision_rtn("v", "m", data)
 plot_precision_rtn("v", "t", data)
-a_m_precision = calc_a_precision(data, data_s2e_csv, "m", "rtn")
-a_t_precision = calc_a_precision(data, data_s2e_csv, "t", "rtn")
-plot_precision_rtn("a", "m", a_m_precision)
-plot_precision_rtn("a", "t", a_t_precision)
 pbd_precision = calc_relinfo("r", "e", data) - calc_relinfo("r", "t", data)
 plot_differential_precision(data, pbd_precision, "r", "ECI")
 dv_precision = calc_relinfo("v", "e", data) - calc_relinfo("v", "t", data)
 plot_differential_precision(data, dv_precision, "v", "ECI")
-plot_differential_precision(
-    data, a_t_precision.iloc[:, 0:3] - a_m_precision.iloc[:, 0:3], "a", "RTN"
-)
 
-plot_a(data, "m")
-plot_a(data, "t")
+if REDUCE_DYNAMIC:
+    a_m_precision = calc_a_precision(data, data_s2e_csv, "m", "rtn")
+    a_t_precision = calc_a_precision(data, data_s2e_csv, "t", "rtn")
+    plot_precision_rtn("a", "m", a_m_precision)
+    plot_precision_rtn("a", "t", a_t_precision)
+    plot_differential_precision(
+        data, a_t_precision.iloc[:, 0:3] - a_m_precision.iloc[:, 0:3], "a", "RTN"
+    )
+
+
+# plot_a(data, "m")
+# plot_a(data, "t")
 # plot_a_precision(data, data_s2e_csv, "m", "eci")
 # plot_a_precision(data, data_s2e_csv, "t", "eci")
 # plot_a_eci(data, "m")
@@ -1481,55 +1553,77 @@ plot_N_precision(data, "m")
 plot_N_precision(data, "t")
 # plot_dN_precision(data)  # 計算コスト高いので必要な時だけにする．
 plot_N_fix_flag(data, "m")
-plot_N_fix_flag(data, "t")
+# plot_N_fix_flag(data, "t")
 # N_plot("m", "t")
 # N_plot("t", "t")
 # N_plot("m", "e")
 # N_plot("t", "e")
 
-plot_R(data, "GRAPHIC", "m")
-plot_R(data, "GRAPHIC", "t")
-plot_R(data, "SDCP", "")
+# plot_R(data, "GRAPHIC", "m")
+# plot_R(data, "GRAPHIC", "t")
+# plot_R(data, "SDCP", "")
 
-plot_QM_N(data, "Q", "m")
-plot_QM_N(data, "Q", "t")
-plot_QM_N(data, "M", "m")
-plot_QM_N(data, "M", "t")
+# plot_QM_N(data, "Q", "m")
+# plot_QM_N(data, "Q", "t")
+# plot_QM_N(data, "M", "m")
+# plot_QM_N(data, "M", "t")
 plot_Q(data, "r", "m")
-plot_Q(data, "r", "t")
+# plot_Q(data, "r", "t")
 plot_Q(data, "v", "m")
-plot_Q(data, "v", "t")
+# plot_Q(data, "v", "t")
 plot_Q(data, "t", "")
 if REDUCE_DYNAMIC:
     plot_Q(data, "a", "m")
-    plot_Q(data, "a", "t")
+    # plot_Q(data, "a", "t")
     plot_Ma(data, "m")
-    plot_Ma(data, "t")
+    # plot_Ma(data, "t")
 # plot_receive_position(data, data_s2e_csv, "m")
 # plot_determined_position_precision(data, data_s2e_csv, "m")
 plot_gnss_direction(data, "m")
 plot_gnss_direction(data, "t")
 # plot_gnss_direction_animation(data, "m")
-# plot_visible_gnss_sat(data)
+plot_visible_gnss_sat(data)
 plot_gnss_id(data, "m")
 plot_gnss_id(data, "t")
-plot_pco(data, "m")
+# plot_pco(data, "m")
 plot_pco(data, "t")
 
+if PCV:
+    # plot_pcv_grid(pcc_log_path, "pcv_true")
+    # plot_pcv_grid(s2e_debug + "target_antenna_pcv.csv", "estimated_target_pcv")
 
-# plot_pcv_grid(pcc_log_path, "pcv_true")
-# plot_pcv_grid(s2e_debug + "target_pcv.csv", "estimated_target_pcv")
+    plot_pcv_by_matplotlib(pcv_log_path, "pcv_true")
+    plot_pcv_by_matplotlib(pcc_log_path, "pcc_true", (-128, 10))
+    plot_pcv_by_matplotlib(s2e_log_dir + "target_antenna_pcv.csv", "estimated_target_pcv")
+    # plot_pcv_by_matplotlib(s2e_log_dir + "_pcv.csv", "estimated_target_pcv")
+    plot_pcv_by_matplotlib(
+        s2e_log_dir + "target_antenna_pcc.csv",
+        "estimated_target_pcc",
+        (-128, 10)
+        # s2e_log_dir + "_pcc.csv",
+        # "estimated_target_pcc",
+        # (-128, 10),
+    )
+    plot_pc_accuracy_by_matplotlib(
+        s2e_log_dir + "target_antenna_pcv.csv",
+        pcv_log_path,
+        "target_pcv_accuracy"
+        # s2e_log_dir + "_pcv.csv",
+        # pcv_log_path,
+        # "target_pcv_accuracy",
+    )
+    plot_pc_accuracy_by_matplotlib(
+        s2e_log_dir + "target_antenna_pcc.csv",
+        pcc_log_path,
+        "target_pcc_accuracy",
+        (-10, 10)
+        # s2e_log_dir + "_pcc.csv",
+        # pcc_log_path,
+        # "target_pcc_accuracy",
+        # (-10, 10),
+    )
 
-plot_pcv_by_matplotlib(pcv_log_path, "pcv_true")
-plot_pcv_by_matplotlib(pcc_log_path, "pcc_true", (-128, 10))
-plot_pcv_by_matplotlib(s2e_debug + "target_antenna_pcv.csv", "estimated_target_pcv")
-plot_pcv_by_matplotlib(s2e_debug + "target_antenna_pcc.csv", "estimated_target_pcc", (-128, 10))
-plot_pc_accuracy_by_matplotlib(
-    s2e_debug + "target_antenna_pcv.csv", pcv_log_path, "target_pcv_accuracy"
-)
-plot_pc_accuracy_by_matplotlib(
-    s2e_debug + "target_antenna_pcc.csv", pcc_log_path, "target_pcc_accuracy"
-)
-
+accuracy_log.to_csv(accuracy_file, sep=",", index=False)
 # 最後に全グラフをまとめてコピー
-shutil.move(output_path, copy_dir + "/figure/")
+# shutil.move(output_path, copy_dir + "figure/")
+shutil.move(output_path, copy_dir)
