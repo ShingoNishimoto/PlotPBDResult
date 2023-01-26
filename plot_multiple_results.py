@@ -29,7 +29,13 @@ def get_latest_modified_file_path(dirname):
 copy_base_dir = "G:/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
 
 # ここを設定
-log_base = copy_base_dir + "202301_thesis_AKF/"
+SEPARATION = 0
+IAR = 0
+CALIBRATION = 0
+RECEIVER = 0
+FILTER = 0
+
+log_base = copy_base_dir
 separation_files = [
     "20230124_163016_100m",
     "20230124_165001_500m",
@@ -51,12 +57,31 @@ receiver_files = [
 ]
 filter_files = ["20230125_182712_EKF_w_IAR_w_PCCerror", "20230124_103810_AEKF_w_IAR_w_PCCerror"]
 
-log_bases = [log_base + each_dir + "/" for each_dir in filter_files]  # fileを設定
-# legend_names = ["100m", "500m", "1km", "2km", "10km"]
-# legend_names = ["w/o IAR", "w/ IAR"]
-# legend_names = ["w/o calibration", "1 cycle", "2 cycle"]
-# legend_names = ["Phoenix", "OEM", "NGPSR", "Tsinghua"]
-legend_names = ["EKF", "AEKF"]
+if SEPARATION:
+    log_base += "202301_thesis_separation/"
+    files = separation_files
+    legend_names = ["100m", "500m", "1km", "2km", "10km"]
+elif IAR:
+    log_base += "202301_thesis_IAR/"
+    files = IAR_files
+    legend_names = ["w/o IAR", "w/ IAR"]
+elif CALIBRATION:
+    log_base += "202301_thesis_PCC_error_wo_PCCestimation/"
+    files = PCC_calibration_files
+    legend_names = ["w/o calibration", "1 cycle", "2 cycle"]
+elif RECEIVER:
+    log_base += "202301_thesis_receiver_performance/"
+    files = receiver_files
+    legend_names = ["Phoenix", "OEM", "NGPSR", "Tsinghua"]
+elif FILTER:
+    log_base += "202301_thesis_AKF/"
+    files = filter_files
+    legend_names = ["EKF", "AEKF"]
+else:
+    print("false input!")
+    abort()
+
+log_bases = [log_base + each_dir + "/" for each_dir in files]  # fileを設定
 
 output_path = "figure/"
 os.makedirs(output_path, exist_ok=True)
