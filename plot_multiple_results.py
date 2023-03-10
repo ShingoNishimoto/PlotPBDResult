@@ -18,6 +18,8 @@ from matplotlib.colors import Normalize
 from mpl_toolkits.mplot3d import Axes3D
 from plotly.subplots import make_subplots
 
+from plot_set import fig_init, fig_init_horizon_bar, fig_output, x_axis_scale
+
 
 def get_latest_modified_file_path(dirname):
     target = os.path.join(dirname, "*")
@@ -30,10 +32,16 @@ copy_base_dir = "G:/マイドライブ/Documents/University/lab/Research/FFGNSS/
 
 # ここを設定
 SEPARATION = 0
+ISS = 0
 IAR = 0
 CALIBRATION = 0
 RECEIVER = 0
 FILTER = 0
+PCV_METHOD = 0
+COST_ACCURACY = 1
+PCO = 0
+REL_POS_BIAS = 0
+ORBITS = 0
 
 log_base = copy_base_dir
 separation_files = [
@@ -41,13 +49,30 @@ separation_files = [
     "20230124_165001_500m",
     "20230124_100149_1km",
     "20230124_161620_2km",
-    "20230124_170120_10km",
+    "20230128_001743_3km",
+    "20230124_170120_10km",  # 一つ抜けているのでなくしていいかも
+    # "w_PCCerror/20230128_094542_100m_after_PCC",
+    # "w_PCCerror/20230129_130455_500m_after_PCC",
+    # "w_PCCerror/20230127_170520_WLS_PCC1cycle_1km",
+    # "w_PCCerror/20230129_123418_2km_after_PCC",
+    # "w_PCCerror/20230127_233258_3km_afterPCCestimation",
+    # # "20230124_170120_10km",  # 一つ抜けているのでなくしていいかも
+]
+ISS_separation_files = [
+    # "20230124_230233_WLS_postPCV_ISS_sep100m",
+    # "20230124_232716_WLS_postPCV_ISS_sep500m",
+    # "20230128_000212_ISS_900m_postPCO",
+    # "20230130_134830_WLS_PCC1cycle1km_wo_PCO_horizon",
+    "wo_PCC_estimation/20230129_142557_100m",
+    "wo_PCC_estimation/20230129_144719_500m",
+    "wo_PCC_estimation/20230129_140414_900m",
+    # "wo_PCC_estimation/20230130_140933_wo_PCC_1km",
 ]
 IAR_files = ["20230124_105907_wo_IAR_wo_PCCerror", "20230124_100149_w_IAR_wo_PCCerror"]
 PCC_calibration_files = [
-    "20230123_090513_wo_PCC_estimation_1km",
-    "20230123_081904_PCC1cycle_1km",
-    "20230123_110838_PCC_2cycle_1km",
+    "20230124_100149_w_IAR_wo_PCCerror",
+    "20230126_160837_PCC1cycle_wo_PCC_error",
+    # "20230123_110838_PCC_2cycle_1km",
 ]
 receiver_files = [
     "20230123_081904_PCC1cycle_1km_Phoenix",
@@ -56,11 +81,49 @@ receiver_files = [
     "20230124_002738_PCC1cycle_TsinhuaSat",
 ]
 filter_files = ["20230125_182712_EKF_w_IAR_w_PCCerror", "20230124_103810_AEKF_w_IAR_w_PCCerror"]
+pcv_method_files = [
+    "20230127_163104_wo_estimation",
+    "20230127_170520_WLS_PCC1cycle",
+    "20230127_171952_RES_PCC1cycle",
+]
+orbits_csv_files = ["dr_accuracies_all_SSO_wo2km.csv", "dr_accuracies_all_ISS.csv"]
+cost_accuracy_files = [
+    # "20230131_191315_WLS_10_PCC1cycle",
+    # "20230130_145307_WLS_20_PCC1cycle",
+    # "20230127_170520_WLS_40_PCC1cycle",
+    # "20230130_150824_WLS_80_PCC1cycle",
+    # "Residual/20230126_010656_RES_after2560",
+    # "Residual/20230130_192307_RES_after4030",
+    # "Residual/20230126_003114_RES_after_6970",
+    "Residual/20230131_104331_RES_90deg_10800_after",
+    "Residual/20230131_170713_RES_45deg_PCC1cycle",
+    "Residual/20230131_174452_RES_30deg_PCC1cycle",
+    "Residual/20230131_134355_RES_PCC1cycle_10800_15deg",
+]
+pco_files = [
+    "20230127_163104_wo_estimation",
+    "20230129_170121_only_PCO",
+    "20230129_171707_only_PCO_rotate",
+]
+rel_pos_bias_files = [
+    # "20230107_201550_after_PCV_WLS_w_rel_pos_bias_1cm_z",
+    # "20230107_173154_after_PCV_WLS_w_rel_pos_bias_1cm_x",
+    # "20230107_194024_after_PCV_WLS_w_rel_pos_bias_1cm_y",
+    "20230107_204525_after_PCV_RES_w_rel_pos_bias_1cm_z",
+    "20230107_174958_after_PCV_RES_w_rel_pos_bias_1cm_x",
+    "20230107_195426_after_PCV_RES_w_rel_pos_bias_1cm_y",
+]
+rel_pos_bias_csv_files = ["accuracies_mean.csv", "accuracies_std.csv"]
 
 if SEPARATION:
     log_base += "202301_thesis_separation/"
     files = separation_files
-    legend_names = ["100m", "500m", "1km", "2km", "10km"]
+    legend_names = ["100m", "500m", "1km", "2km", "3km", "10km"]
+elif ISS:
+    log_base += "202301_thesis_ISS/"
+    files = ISS_separation_files
+    legend_names = ["100m", "500m", "900m"]
+    # legend_names = ["w/o PCC estimation", "w/ PCC estimation"]
 elif IAR:
     log_base += "202301_thesis_IAR/"
     files = IAR_files
@@ -77,6 +140,31 @@ elif FILTER:
     log_base += "202301_thesis_AKF/"
     files = filter_files
     legend_names = ["EKF", "AEKF"]
+elif PCV_METHOD:
+    log_base += "202301_thesis_1km_base_results/"
+    files = pcv_method_files
+    legend_names = ["w/o calibration", "Model", "Residual"]
+elif ORBITS:
+    log_base += "202301_thesis_orbits/"
+    files = orbits_csv_files
+    legend_names = [["100m", "500m", "1km", "3km"], ["100m", "500m", "900m"]]
+    subplot_names = ["SSO", "ISS"]
+elif COST_ACCURACY:
+    log_base += "202301_thesis_computational_cost_accuracy/"
+    files = cost_accuracy_files
+    legend_names = ["900", "1800", "3600", "7200"]  # matrix size
+    # legend_names = ["2560s", "4030s", "6970s"]  # residual time
+    legend_names = ["90deg", "45deg", "30deg", "15deg"]  # residual bin size
+elif PCO:
+    log_base += "202301_thesis_PCO/"
+    files = pco_files
+    legend_names = ["w/o PCO estimation", "along-track: north", "along-track: east"]  # matrix size
+elif REL_POS_BIAS:
+    # log_base += "202301_thesis_relpos_performance/bias/"
+    log_base += "20230130_220120_rel_pos_bias_RES/"
+    files = rel_pos_bias_csv_files  # rel_pos_bias_files
+    legend_names = ["radial", "tangential", "normal"]  # matrix size
+    subplot_names = ["mean", "std"]
 else:
     print("false input!")
     abort()
@@ -89,15 +177,18 @@ dt_now = datetime.datetime.now()
 copy_dir = copy_base_dir + dt_now.strftime("%Y%m%d_%H%M%S") + "/"
 os.makedirs(copy_dir)
 # shutil.copytree(s2e_log_dir, copy_dir, ignore=shutil.ignore_patterns("figure"))
-accuracy_file = copy_dir + "accuracies.txt"
+accuracy_file = copy_dir + "accuracies.csv"
 
-accuracy_log = pd.DataFrame(columns=["name", "axis", "unit", "value"])  # ここに計算した精度を入れていく．
+# accuracy_log = pd.DataFrame(columns=["name", "axis", "unit", "value"])  # ここに計算した精度を入れていく．
+accuracy_log = pd.DataFrame(
+    columns=["legend", "name", "axis", "unit", "mean", "std", "rms"]
+)  # ここに計算した精度を入れていく．
 
 # この二つはどっかからとってきたいな．
 REDUCE_DYNAMIC = 1
 GNSS_CH_NUM = 15
-SVG_ENABLE = 1
-PCV = 0
+# SVG_ENABLE = 1
+# PCV = 0
 data_offset = 1000  # s 6580(WLS)
 x_axis_scale = 1.0 / 3600  # sec -> hour
 
@@ -305,87 +396,41 @@ def find_log_data(log_base: str) -> list:
     return [data, data_s2e]
 
 
-def fig_init(data, names, unit) -> go.Figure():
-    fig = make_subplots(
-        rows=len(names), cols=1, shared_xaxes=True, vertical_spacing=0.03  # , shared_yaxes=True
-    )  # subplot_titles=tuple(base_names)
-    fig.update_layout(
-        plot_bgcolor="white",
-        font=dict(size=20, family="Times New Roman"),
-        width=1200,
-        height=700,
-        legend=dict(
-            x=0.53,
-            y=0.99,
-            xanchor="left",
-            yanchor="top",
-            font=dict(size=13),
-            bordercolor="black",
-            borderwidth=1,
-            orientation="h",
-            itemsizing="constant",
-        ),
-        margin=dict(t=1, b=1, l=1, r=1),
-    )
-    for i, name in enumerate(names):
-        fig.update_xaxes(
-            linecolor="black",
-            gridcolor="silver",
-            mirror=True,
-            range=(0, data.index[-1] * x_axis_scale),
-            row=(i + 1),
-        )
-        axis_name = "$" + name + "[" + unit + "]$"
-        fig.update_yaxes(
-            linecolor="black",
-            mirror=True,
-            zeroline=True,
-            zerolinecolor="silver",
-            zerolinewidth=1,
-            title=dict(text=axis_name, standoff=2),
-            row=(i + 1),
-        )
-    fig.update_xaxes(title_text="$t[\\text{hours}]$", row=len(names))
-    return fig
-
-
-def fig_output(fig: go.Figure(), name: str) -> None:
-    fig.write_html(name + ".html", include_mathjax="cdn")
-    # fig.write_image(name + ".eps")
-    if SVG_ENABLE:
-        fig.write_image(name + ".svg")
-
-
 # 3drmsを含めてしまいたいが
-def add_accuracy(precision: pd.DataFrame(), name: str, axis: str, unit: str) -> None:
+def add_accuracy(
+    precision: pd.DataFrame(), legend_name: str, name: str, axis: str, unit: str
+) -> None:
     global accuracy_log
     accuracy_log = accuracy_log.append(
-        {"name": name + "_" + "mean", "axis": axis, "unit": unit, "value": precision.mean()},
-        ignore_index=True,
-    )
-    accuracy_log = accuracy_log.append(
-        {"name": name + "_" + "std", "axis": axis, "unit": unit, "value": precision.std()},
-        ignore_index=True,
-    )
-    accuracy_log = accuracy_log.append(
         {
-            "name": name + "_" + "rms",
+            "legend": legend_name,
+            "name": name,
             "axis": axis,
             "unit": unit,
-            "value": np.sqrt(np.mean(precision**2)),
+            "mean": float("{:.3f}".format(precision.mean())),
+            "std": float("{:.3f}".format(precision.std())),
+            "rms": float("{:.3f}".format(np.sqrt(np.mean(precision**2)))),
         },
         ignore_index=True,
     )
 
 
-def add_3d_rms(precision: pd.DataFrame(), name: str, axes: list, unit: str) -> None:
+def add_3d_rms(
+    precision: pd.DataFrame(), legend_name: str, name: str, axes: list, unit: str
+) -> None:
     global accuracy_log
     _3d_ms = 0
     for axis in axes:
         _3d_ms += np.mean(precision[axis] ** 2)
     _3d_rms = np.sqrt(_3d_ms)
     accuracy_log = accuracy_log.append(
-        {"name": name + "_" + "3drms", "axis": "", "unit": unit, "value": _3d_rms},
+        {
+            "legend": legend_name,
+            "name": name,
+            "axis": "3d",
+            "unit": unit,
+            "rms": float("{:.3f}".format(_3d_rms)),
+        },
         ignore_index=True,
     )
 
@@ -447,6 +492,52 @@ def calc_relinfo(r_v_a, t_e, data):
     return base
 
 
+# 加速度の精度
+def calc_a_precision(
+    data: pd.DataFrame(), data_s2e_log: pd.DataFrame(), m_t: str, frame: str
+) -> pd.DataFrame():
+    if frame == "eci":
+        a_base_names = ["ax", "ay", "az"]
+        a_names = [base_name + "_" + m_t for base_name in a_base_names]
+        a_t_names = [
+            "sat_acc_i_i(X)[m/s^2]",
+            "sat_acc_i_i(Y)[m/s^2]",
+            "sat_acc_i_i(Z)[m/s^2]",
+        ]  # 一旦べた書き
+    elif frame == "rtn":
+        a_base_names = ["ar", "at", "an"]
+        a_names = [base_name + "_" + m_t + "_e" for base_name in a_base_names]
+        a_t_names = [
+            "sat_acc_rtn_rtn(X)[m/s^2]",
+            "sat_acc_rtn_rtn(Y)[m/s^2]",
+            "sat_acc_rtn_rtn(Z)[m/s^2]",
+        ]
+    else:
+        return
+    a_dist_names = [base_name + "_dist_" + m_t for base_name in a_base_names]
+    a_e = pd.DataFrame()
+    for i in range(3):
+        a_e[a_base_names[i]] = data[a_names[i]] * 1e-3 + data[a_dist_names[i]] * 1e6  # um/s2
+
+    if m_t == "t":
+        a_t_names = [name + ".1" for name in a_t_names]
+    a_t = pd.DataFrame()
+    for i in range(3):
+        a_t[a_base_names[i]] = data_s2e_log[a_t_names[i]] * 1e6  # um/s2
+    a_t = a_t[1:].reset_index()  # ここはs2e_logとのindexずれがあるので補正している．
+
+    M_names = ["M" + name + "_" + m_t for name in a_base_names]
+
+    precision = pd.DataFrame()
+    for i in range(3):
+        precision[a_names[i]] = a_e[a_base_names[i]] - a_t[a_base_names[i]]
+    # Mのデータも追加．
+    for i in range(3):
+        precision[M_names[i]] = data[M_names[i]] * (1e-3) ** 2  # um/s2 Mは2乗なので
+        data[M_names[i]] = precision[M_names[i]]  # dataの方にもコピー
+    return precision
+
+
 red_list = [(103, 0, 13), (165, 15, 21), (203, 24, 29), (239, 59, 44), (251, 106, 74)]  # Reds
 
 color_list = [
@@ -457,6 +548,13 @@ color_list = [
     "darkcyan",
     "darkblue",
     "darkmagenta",
+    # "darkred",
+    # "chartreuse",
+    # "darkblue",
+    # "darkmagenta",
+    # "tomato",
+    # "goldenrod",
+    # "darkcyan",
 ]
 
 
@@ -534,19 +632,19 @@ class PlotSettings:
             self.scale_param = 100
             self.output_name = "relative_position"
             self.M_names = ["Mrr", "Mrt", "Mrn"]
-            self.y_range = 0.30 * self.scale_param  # 0.18
+            self.y_range = 0.14 * self.scale_param  # 0.18
         elif self.r_v_a == "v":
             self.unit = "mm/s"
             self.scale_param = 1000
             self.output_name = "relative_velocity"
             self.M_names = ["Mvr", "Mvt", "Mvn"]
-            self.y_range = 1.5  # 3.5
+            self.y_range = 1.2  # 3.5
         elif self.r_v_a == "a":
             self.unit = "um/s^2"
             self.scale_param = 1
             self.output_name = "relative_a"
             self.M_names = ["Mar", "Mat", "Man"]
-            self.y_range = 2.4
+            self.y_range = 0.07
         else:
             print("input error!")
             return
@@ -566,7 +664,6 @@ def plot_multiple_precision(r_v_a: str, m_t: str, data_type: str, datas: list) -
             plot_precision_rtn(fig, data, plot_set, color_list[i], legend_name=legend_names[i])
         elif data_type == "rel_rtn":
             plot_differential_precision(fig, data, plot_set, color_list[i], legend_names[i])
-
     fig_output(fig, output_path + plot_set.output_name + "_precision_" + plot_set.suffix)
 
 
@@ -581,6 +678,7 @@ def plot_precision_rtn(
     for i in range(len(plot_set.names)):
         add_accuracy(
             data_for_plot.loc[data_offset:, plot_set.col_names[i]],
+            legend_name,
             plot_set.base_name + "_" + plot_set.m_t,
             plot_set.frame_names[i],
             plot_set.unit,
@@ -597,6 +695,9 @@ def plot_precision_rtn(
                 name=legend_name,
                 legendgroup=str(i + 1),
                 marker=dict(size=2, color=color_str),
+                # marker=dict(
+                #     size=2,
+                # ),
                 showlegend=show_legend,
             ),
             row=(i + 1),
@@ -632,6 +733,7 @@ def plot_precision_rtn(
         )
     add_3d_rms(
         data_for_plot.loc[data_offset:, :],
+        legend_name,
         plot_set.base_name + "_" + plot_set.m_t,
         plot_set.col_names,
         plot_set.unit,
@@ -661,7 +763,8 @@ def plot_differential_precision(
     for i in range(len(plot_set.names)):
         add_accuracy(
             precision_data.iloc[data_offset:, i],
-            plot_set.names[i],
+            legend_name,
+            plot_set.base_name,
             plot_set.frame_names[i],
             plot_set.unit,
         )
@@ -677,6 +780,7 @@ def plot_differential_precision(
                 name=legend_name,
                 legendgroup=str(i + 1),
                 marker=dict(size=2, color=color_str),
+                # marker=dict(size=2),
                 showlegend=show_legend,
             ),
             row=(i + 1),
@@ -690,6 +794,7 @@ def plot_differential_precision(
         )
     add_3d_rms(
         precision_data.loc[data_offset:, :],
+        legend_name,
         plot_set.base_name,
         plot_set.col_names,
         plot_set.unit,
@@ -697,6 +802,78 @@ def plot_differential_precision(
     # fig_output(fig, output_path + output_name + "_precision")
 
 
+def plot_multiple_bar(
+    accuracy_data: pd.DataFrame(), categories: list, r_v_a: str, m_t: str, data_type: str
+) -> None:
+    plot_set = PlotSettings(r_v_a, m_t, data_type)
+    precision_title = "$" + plot_set.base_name + "[\\text{" + plot_set.unit + "}]$"
+    fig = fig_init_horizon_bar([accuracy_data], legend_names, precision_title)
+
+    for i, category in enumerate(categories):
+        fig = plot_accuracy_bar(
+            fig, accuracy_data[accuracy_data["legend"] == category], category, color_list[i], 1
+        )
+
+    fig.update_layout(barmode="group")
+    fig_output(fig, output_path + plot_set.output_name + "_precision_bar")
+
+
+def plot_accuracy_bar(
+    fig: go.Figure(), accuracy_data: pd.DataFrame(), category: str, color_str: str, col_num: int
+) -> go.Figure():
+    fig.add_trace(
+        go.Bar(
+            name=category,
+            x=accuracy_data["axis"],
+            y=accuracy_data["rms"],
+            # text=accuracy_data["std"],
+            texttemplate="%{y:.3f}",
+            textposition="outside",
+            textfont=dict(size=25),
+            marker_color=color_str,
+            legendgroup=str(col_num),
+            # showlegend=False,
+        ),
+        row=1,
+        col=col_num,
+    )
+    # mean, stdもプロットしたいときはsubplotごとにする．
+    return fig
+
+
+def plot_accuracy_comparison_w_subplot(
+    r_v_a: str, m_t: str, data_type: str, datas: list, categories: list, subplot_names: list
+) -> None:
+    plot_set = PlotSettings(r_v_a, m_t, data_type)
+    fig = fig_init_horizon_bar(datas, plot_set.names, plot_set.unit)
+
+    for j, data in enumerate(datas):
+        for i, category in enumerate(categories[j]):  # categories[j]
+            fig = plot_accuracy_bar(
+                fig, data[data["legend"] == category], category, color_list[i], j + 1
+            )
+        fig.update_xaxes(
+            col=j + 1,
+            title=dict(
+                text=subplot_names[j],
+                # standoff=2,
+            ),
+        )
+    fig.update_traces(
+        showlegend=True,
+        row=1,
+        col=1,
+    )
+
+    fig_output(fig, output_path + plot_set.output_name + "_precision_bar_all")
+
+
+# pd.options.display.float_format = "{:.2f}".format
+# pd.options.display.precision = 3
+data_type_abs = "abs_rtn"
+data_type_rel = "rel_rtn"
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 datas_list = []
 for log_path in log_bases:
     datas_list.append(find_log_data(log_path))
@@ -704,6 +881,9 @@ datas, s2e_datas = list(zip(*datas_list))
 
 dr_precisions = []
 dv_precisions = []
+da_precisions = []
+# am_precisions = []
+# at_precisions = []
 
 # この辺の計算が重いからやっぱり一回csvに残しておきたいな．
 DCMs = []  # 主衛星の軌道は変わらないので使いまわせる．
@@ -712,23 +892,60 @@ for i in range(len(data)):
     DCMs.append(
         DCM_from_eci_to_rtn((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
     )
-for data in datas:
+for data, s2e_data in zip(datas, s2e_datas):
     dr_precision = calc_relinfo("r", "e", data) - calc_relinfo("r", "t", data)
     dr_precisions.append(trans_eci_to_rtn(DCMs, dr_precision))
 
     dv_precision = calc_relinfo("v", "e", data) - calc_relinfo("v", "t", data)
     dv_precisions.append(trans_eci_to_rtn(DCMs, dv_precision))
 
-data_type_abs = "abs_rtn"
-data_type_rel = "rel_rtn"
+    # a_m_precision = calc_a_precision(data, s2e_data, "m", "rtn")
+    # a_t_precision = calc_a_precision(data, s2e_data, "t", "rtn")
+    # # plot_precision_rtn("a", "m", a_m_precision)
+    # # plot_precision_rtn("a", "t", a_t_precision)
+    # da_precision = calc_relinfo("a", "e", pd.concat([a_m_precision, a_t_precision], axis=1))
+    # da_precisions.append(da_precision)
+    # # plot_differential_precision(
+    # #     data, a_t_precision.iloc[:, 0:3] - a_m_precision.iloc[:, 0:3], "a", "RTN"
+    # # )
 
 plot_multiple_precision("r", "m", data_type_abs, datas)
-plot_multiple_precision("r", "t", data_type_abs, datas)
-# plot_multiple_precision("v", "m", data_type_abs, datas)
+# plot_multiple_precision("r", "t", data_type_abs, datas)
+plot_multiple_precision("v", "m", data_type_abs, datas)
 # plot_multiple_precision("v", "t", data_type_abs, datas)
 
 plot_multiple_precision("r", "", data_type_rel, dr_precisions)
 plot_multiple_precision("v", "", data_type_rel, dv_precisions)
+# plot_multiple_precision("a", "", data_type_rel, da_precisions)
+
+
+# bar plot
+plot_multiple_bar(
+    # accuracy_log.query('name.str().contains("dr")'),  # engine="python"),
+    accuracy_log[accuracy_log["name"] == "dr"],
+    legend_names,
+    "r",
+    "",
+    data_type_rel,
+)
+plot_multiple_bar(
+    # accuracy_log.query('name.str().contains("dv")'),  # engine="python"),
+    accuracy_log[accuracy_log["name"] == "dv"],
+    legend_names,
+    "v",
+    "",
+    data_type_rel,
+)
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# accuracy_logs = [log_base + log for log in files]
+# accuracy_datas = []
+# for file in accuracy_logs:
+#     accuracy_datas.append(pd.read_csv(file))
+
+# plot_accuracy_comparison_w_subplot(
+#     "r", "", data_type_rel, accuracy_datas, legend_names, subplot_names
+# )
 
 accuracy_log.to_csv(accuracy_file, sep=",", index=False)
 # 最後に全グラフをまとめてコピー

@@ -18,6 +18,8 @@ from matplotlib.colors import Normalize
 from mpl_toolkits.mplot3d import Axes3D
 from plotly.subplots import make_subplots
 
+from plot_set import fig_init, fig_output, set_fig_params, x_axis_scale
+
 
 def get_latest_modified_file_path(dirname):
     target = os.path.join(dirname, "*")
@@ -40,19 +42,21 @@ sim_config_path = s2e_log_dir + "readme.txt"
 log_path = s2e_log_dir + "result.csv"
 pcc_log_path = s2e_log_dir + "pcc_1.csv"
 pcv_log_path = s2e_log_dir + "pcv_1.csv"
+sdcp_residual_log_path = s2e_log_dir + "sdcp_residual.csv"
 
 # # # コピーしたログファイルからグラフ描くとき===========
-# log_base = copy_base_dir + "202301_thesis_IAR/20230124_100149_w_IAR_wo_PCCerror/"  # ここを修正
-# #  log_base = "D:\Documents\Project\S2E\s2e_pbd\data\logs\logs_230124_163128/"
-# sim_config_path = log_base + "readme.txt"
-# log_path = log_base + "result.csv"
-# s2e_log_dir = log_base
-# s2e_csv_log_path = (
-#     s2e_log_dir + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]  # バグりそう．
-# )
-# pcc_log_path = log_base + "pcc_1.csv"
-# pcv_log_path = log_base + "pcv_1.csv"
-# s2e_debug = log_base
+log_base = copy_base_dir + "20230306_105605_1km/"  # ここを修正
+# log_base = "D:\Documents\Project\S2E\s2e_pbd\data\logs\logs_230201_182357/"
+sim_config_path = log_base + "readme.txt"
+log_path = log_base + "result.csv"
+s2e_log_dir = log_base
+s2e_csv_log_path = (
+    s2e_log_dir + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]  # バグりそう．
+)
+pcc_log_path = log_base + "pcc_1.csv"
+pcv_log_path = log_base + "pcv_1.csv"
+sdcp_residual_log_path = log_base + "sdcp_residual.csv"
+s2e_debug = log_base
 # ================================================
 
 # 実行時にメモ残すようにするといいかも
@@ -74,12 +78,14 @@ accuracy_log = pd.DataFrame(columns=["name", "axis", "unit", "value"])  # ここ
 # この二つはどっかからとってきたいな．
 REDUCE_DYNAMIC = 1
 GNSS_CH_NUM = 15
-SVG_ENABLE = 1
-PCV = 1
+PCV = 0
 # 精度評価には最後の1000sくらいのデータを使うようにする．
 # data_offset = len(data) - 1000  # s
-data_offset = 4430  # s 6970(WLS)
+data_offset = 1000  # s 6970(WLS)
 x_axis_scale = 1.0 / 3600  # sec -> hour
+# constant（ここはorbit_initツールで設定した値に更新する！）
+mu0 = 3.986 * 10**14  # [m^3/s^2]
+a = 7078.136 * 10**3  # m
 
 # true information
 col_true_info = [
@@ -264,60 +270,6 @@ s2e_data_col += [col + ".1" for col in s2e_data_col]
 # data_s2e_csv = pd.read_csv(s2e_csv_log_path, usecols=s2e_data_col) # ログの頻度を合わせて回すこと！
 data_s2e_csv = pd.read_csv(s2e_csv_log_path)
 
-# FIXME この辺はクラス化したい．
-def fig_init(data, names, unit) -> go.Figure():
-    fig = make_subplots(
-        rows=len(names), cols=1, shared_xaxes=True, vertical_spacing=0.03  # , shared_yaxes=True
-    )  # subplot_titles=tuple(base_names)
-    fig.update_layout(
-        plot_bgcolor="white",
-        font=dict(size=20, family="Times New Roman"),
-        width=1200,
-        height=700,
-        legend=dict(
-            x=0.53,
-            y=0.99,
-            xanchor="left",
-            yanchor="top",
-            font=dict(size=13),
-            bordercolor="black",
-            borderwidth=1,
-            orientation="h",
-            itemsizing="constant",
-        ),
-        margin=dict(t=1, b=1, l=1, r=1),
-    )
-    for i, name in enumerate(names):
-        fig.update_xaxes(
-            linecolor="black",
-            gridcolor="silver",
-            mirror=True,
-            range=(0, data.index[-1] * x_axis_scale),
-            row=(i + 1),
-        )
-        axis_name = "$" + name + "[" + unit + "]$"
-        fig.update_yaxes(
-            linecolor="black",
-            mirror=True,
-            zeroline=True,
-            zerolinecolor="silver",
-            zerolinewidth=1,
-            title=dict(text=axis_name, standoff=2),
-            row=(i + 1),
-        )
-    fig.update_xaxes(title_text="$t[\\text{hours}]$", row=len(names))
-    return fig
-
-
-def fig_output(fig: go.Figure(), name: str) -> None:
-    fig.update_layout(
-        margin=dict(t=1, b=1, l=1, r=1),
-    )
-    fig.write_html(name + ".html", include_mathjax="cdn")
-    # fig.write_image(name + ".eps")
-    if SVG_ENABLE:
-        fig.write_image(name + ".svg")
-
 
 def calc_relinfo(r_v_a, t_e, data):
     """
@@ -352,6 +304,66 @@ def calc_relinfo(r_v_a, t_e, data):
 # fig.update_yaxes(title_text="$b[\\text{m}]$")
 # fig_output(fig, output_path + "baseline")
 # fig.show()
+
+# lvlh
+def plot_rel_state(r_v_a: str, rel_data: pd.DataFrame()) -> None:
+    if r_v_a == "r":
+        base_names = ["x", "y", "z"]
+        axis_names = base_names
+        unit = "m"
+        scale_param = 1
+    elif r_v_a == "v":
+        base_names = ["vx", "vy", "vz"]
+        axis_names = ["v_x", "v_y", "v_z"]
+        unit = "mm/s"
+        scale_param = 1000
+    elif r_v_a == "a":
+        base_names = ["ax", "ay", "az"]
+        axis_names = ["a_x", "a_y", "a_z"]
+        unit = "um/s^2"
+        scale_param = 1e-3
+    else:
+        print("false input")
+        return
+    fig = fig_init(rel_data, axis_names, unit)
+    colors = ["red", "blue", "green"]
+
+    for i in range(len(base_names)):
+        fig.add_trace(
+            go.Scatter(
+                mode="markers",
+                x=rel_data.index * x_axis_scale,
+                y=rel_data.iloc[:, i],
+                name="$" + axis_names[i] + "$",
+                legendgroup=str(i + 1),
+                marker=dict(size=2, color=colors[i]),
+            ),
+            row=(i + 1),
+            col=1,
+        )
+        # 分散のところは絶対的な状態量から出しているもので正確ではないのでplotしない．
+        # fig.update_yaxes(
+        #     range=(-y_range, y_range),
+        #     row=(i + 1),
+        #     col=1,
+        # )
+
+    fig_output(fig, output_path + "relative_" + r_v_a)
+
+
+def plot_separation_eci(baseline: pd.DataFrame()) -> None:
+    fig = fig_init(data, ["separation"], "m")
+    # colors = ["red", "blue", "green"]
+    separation = np.sqrt((baseline * baseline).sum(axis=1))
+    fig.add_trace(
+        go.Scatter(
+            mode="markers",
+            x=separation.index * x_axis_scale,
+            y=separation,
+            marker=dict(size=2),
+        ),
+    )
+    fig_output(fig, output_path + "separation")
 
 
 def trans_eci2rtn(position, velocity):
@@ -543,7 +555,7 @@ def plot_precision_rtn(r_v_a, m_t, data):
         scale_param = 1
         output_name = "a_rtn"
         M_names_base = ["Mar", "Mat", "Man"]
-        y_range = 20.0  # ホンマはautoにしたい．
+        y_range = 19.0  # ホンマはautoにしたい．
     else:
         print("false input")
         return
@@ -643,7 +655,7 @@ def plot_differential_precision(
         axis_names = ["a_R", "a_T", "a_N"]
         output_name = "relative_a"
         M_names = ["Mar", "Mat", "Man"]
-        y_range = 0.2  # 2.4
+        y_range = 0.19  # 2.4
     else:
         print("input error!")
         return
@@ -838,7 +850,7 @@ def plot_a_eci_true(data_s2e_log, m_t):
 
 
 def plot_a_rtn_true(data_s2e_log, m_t):
-    a_base_names = ["a_r", "a_t", "a_n"]
+    a_base_names = ["a_R", "a_T", "a_N"]
     # true
     a_t_names = [
         "sat_acc_rtn_rtn(X)[m/s^2]",
@@ -1089,12 +1101,15 @@ def plot_dN_precision(data: pd.DataFrame):
 
 def plot_N_fix_flag(data, m_t):
     precision = pd.DataFrame()
-    names = ["is_fixed"]
+    names = ["is fixed"]
     unit = "True/False"
     fig = fig_init(data, names, unit)
+    # fig = go.Figure()
     for i in range(GNSS_CH_NUM):
         col_name = "N" + str(i + 1) + "_" + m_t
-        fig.add_trace(go.Scatter(x=data.index, y=data[col_name], name="N" + str(i + 1)))
+        fig.add_trace(
+            go.Scatter(x=data.index * x_axis_scale, y=data[col_name], name="N" + str(i + 1))
+        )
 
     suffix = get_suffix(m_t)
 
@@ -1500,14 +1515,125 @@ def plot_pc_accuracy_by_matplotlib(est_fname, true_fname, out_fname, crange=(-5,
     )
 
 
+def plot_sdcp_residual_by_matplotlib(fname, out_fname, crange=(-10, 10)) -> None:
+    res_df = pd.read_csv(fname, header=None)
+
+    # for fix range +++++++++++++++++++++++++++++++++++++++++
+    plot_phase_center_distribution(
+        res_df, out_fname, crange, Normalize(vmin=crange[0], vmax=crange[1]), cm.bwr
+    )
+
+
+def plot_residual_by_elevation(data: pd.DataFrame()) -> None:
+    (
+        global_font_size,
+        legend_font_size,
+        axis_title_font_size,
+        width,
+        height,
+        v_space,
+        h_space,
+        x_pos,
+    ) = set_fig_params()
+
+    fig = make_subplots()  # subplot_titles=tuple(base_names)
+    fig.update_layout(
+        plot_bgcolor="white",
+        font=dict(size=global_font_size, family="Times New Roman"),  # globalなfont設定
+        width=700,
+        height=400,
+        legend=dict(
+            x=x_pos,
+            y=0.99,
+            xanchor="left",
+            yanchor="top",
+            font=dict(size=legend_font_size),
+            bordercolor="black",
+            borderwidth=1,
+            orientation="h",
+            itemsizing="constant",
+        ),
+        margin=dict(t=1, b=1, l=1, r=1),
+    )
+    fig.update_xaxes(
+        linecolor="black",
+        gridcolor="silver",
+        mirror=True,
+        range=(90, 0),
+        title=dict(text="$\\text{elevation}[^\\circ]$"),
+        titlefont_size=axis_title_font_size,
+    )
+    fig.update_yaxes(
+        linecolor="black",
+        mirror=True,
+        zeroline=True,
+        zerolinecolor="silver",
+        zerolinewidth=1,
+        title=dict(
+            text="residual [mm]",
+            standoff=2,
+        ),
+        titlefont_size=axis_title_font_size,
+    )
+    angles = np.arange(90, -5, -5)
+    # 平均だと微妙なのでRMSで評価する？
+    mean = data[data != 0].mean(axis=0)  # 完全に0の項は観測がなかった部分なので計算から除外．
+    mean.iat[-1] = 0
+    fig.add_trace(
+        go.Scatter(
+            mode="markers",
+            x=angles,
+            y=mean,
+            name="$\mu$",
+            legendgroup=str(1),
+            marker=dict(size=5, color="red"),
+        ),
+    )
+    # 1 sigmaを計算してプロットする．
+    sigma = data[data != 0].std(axis=0)
+    sigma.iat[-1] = 0
+    fig.add_trace(
+        go.Scatter(
+            mode="lines",
+            x=angles,
+            y=sigma,
+            name="$\sigma$",
+            legendgroup=str(2),
+            line=dict(width=1, color="black"),
+            # showlegend=False,
+        ),
+    )
+    fig.add_trace(
+        go.Scatter(
+            mode="lines",
+            x=angles,
+            y=-sigma,  # name="$\sigma$",
+            legendgroup=str(2),
+            line=dict(width=1, color="black"),
+            showlegend=False,
+        ),
+    )
+
+    fig_output(fig, output_path + "sdcp_residual_by_elevation")
+
+
 # # plot
 # plot_3d_orbit(data)
+# ここでの計算はECI
 baseline = calc_relinfo("r", "t", data)
+relative_v = calc_relinfo("v", "t", data)
 # plot_3d_relative_orbit(baseline, "eci")
-# lvlh
+plot_separation_eci(baseline)
+# 主衛星固定のlvlhに変換
+omega_chief_lvlh = np.sqrt(mu0 / a**3)  # これは平均運動なので実際の角速度とは少し違う．
+omega_lvlh = np.array([0, -omega_chief_lvlh, 0])
 for i in range(len(baseline)):
     DCM = DCM_from_eci_to_lvlh((data.loc[i, "x_m_t":"z_m_t"], data.loc[i, "vx_m_t":"vz_m_t"]))
     baseline.iloc[i, :] = np.dot(DCM, baseline.iloc[i, :])
+    rotation_element = np.cross(omega_lvlh, baseline.iloc[i, :])
+    relative_v.iloc[i, :] = (
+        np.dot(DCM, relative_v.iloc[i, :]) - rotation_element
+    )  # ここの座標変換の式はまとめておく．
 plot_3d_relative_orbit(baseline, "lvlh")
 
 # plot_precision("r", "m", data)
@@ -1523,105 +1649,112 @@ plot_differential_precision(data, pbd_precision, "r", "ECI")
 dv_precision = calc_relinfo("v", "e", data) - calc_relinfo("v", "t", data)
 plot_differential_precision(data, dv_precision, "v", "ECI")
 
-if REDUCE_DYNAMIC:
-    a_m_precision = calc_a_precision(data, data_s2e_csv, "m", "rtn")
-    a_t_precision = calc_a_precision(data, data_s2e_csv, "t", "rtn")
-    plot_precision_rtn("a", "m", a_m_precision)
-    plot_precision_rtn("a", "t", a_t_precision)
-    plot_differential_precision(
-        data, a_t_precision.iloc[:, 0:3] - a_m_precision.iloc[:, 0:3], "a", "RTN"
-    )
+plot_rel_state("r", baseline)
+plot_rel_state("v", relative_v)
+
+# if REDUCE_DYNAMIC:
+#     a_m_precision = calc_a_precision(data, data_s2e_csv, "m", "rtn")
+#     a_t_precision = calc_a_precision(data, data_s2e_csv, "t", "rtn")
+#     plot_precision_rtn("a", "m", a_m_precision)
+#     plot_precision_rtn("a", "t", a_t_precision)
+#     plot_differential_precision(
+#         data, a_t_precision.iloc[:, 0:3] - a_m_precision.iloc[:, 0:3], "a", "RTN"
+#     )
 
 
-# plot_a(data, "m")
-# plot_a(data, "t")
-# plot_a_precision(data, data_s2e_csv, "m", "eci")
-# plot_a_precision(data, data_s2e_csv, "t", "eci")
-# plot_a_eci(data, "m")
-# plot_a_eci(data, "t")
-# plot_a_dist(data, "m", "eci")
-# plot_a_dist(data, "t", "eci")
-# plot_a_dist(data, "m", "rtn")
-# plot_a_dist(data, "t", "rtn")
-# plot_a_eci_true(data_s2e_csv, "m")
+# # plot_a(data, "m")
+# # plot_a(data, "t")
+# # plot_a_precision(data, data_s2e_csv, "m", "eci")
+# # plot_a_precision(data, data_s2e_csv, "t", "eci")
+# # plot_a_eci(data, "m")
+# # plot_a_eci(data, "t")
+# # plot_a_dist(data, "m", "eci")
+# # plot_a_dist(data, "t", "eci")
+# # plot_a_dist(data, "m", "rtn")
+# # plot_a_dist(data, "t", "rtn")
+# # plot_a_eci_true(data_s2e_csv, "m")
 # plot_a_rtn_true(data_s2e_csv, "m")
 
-# cdt_plot(data, output_path + "cdt")
-# cdt_plot(data[data.index % 10 == 9], output_path + "cdt_sparse")
+# # cdt_plot(data, output_path + "cdt")
+# # cdt_plot(data[data.index % 10 == 9], output_path + "cdt_sparse")
 
-plot_N_precision(data, "m")
-plot_N_precision(data, "t")
-# plot_dN_precision(data)  # 計算コスト高いので必要な時だけにする．
-plot_N_fix_flag(data, "m")
-# plot_N_fix_flag(data, "t")
-# N_plot("m", "t")
-# N_plot("t", "t")
-# N_plot("m", "e")
-# N_plot("t", "e")
+# plot_N_precision(data, "m")
+# plot_N_precision(data, "t")
+# # plot_dN_precision(data)  # 計算コスト高いので必要な時だけにする．
+# plot_N_fix_flag(data, "m")
+# # plot_N_fix_flag(data, "t")
+# # N_plot("m", "t")
+# # N_plot("t", "t")
+# # N_plot("m", "e")
+# # N_plot("t", "e")
 
-# plot_R(data, "GRAPHIC", "m")
-# plot_R(data, "GRAPHIC", "t")
-# plot_R(data, "SDCP", "")
+# # plot_R(data, "GRAPHIC", "m")
+# # plot_R(data, "GRAPHIC", "t")
+# # plot_R(data, "SDCP", "")
 
-# plot_QM_N(data, "Q", "m")
-# plot_QM_N(data, "Q", "t")
-# plot_QM_N(data, "M", "m")
-# plot_QM_N(data, "M", "t")
-plot_Q(data, "r", "m")
-# plot_Q(data, "r", "t")
-plot_Q(data, "v", "m")
-# plot_Q(data, "v", "t")
-plot_Q(data, "t", "")
-if REDUCE_DYNAMIC:
-    plot_Q(data, "a", "m")
-    # plot_Q(data, "a", "t")
-    plot_Ma(data, "m")
-    # plot_Ma(data, "t")
-# plot_receive_position(data, data_s2e_csv, "m")
-# plot_determined_position_precision(data, data_s2e_csv, "m")
-plot_gnss_direction(data, "m")
-plot_gnss_direction(data, "t")
-# plot_gnss_direction_animation(data, "m")
-plot_visible_gnss_sat(data)
-plot_gnss_id(data, "m")
-plot_gnss_id(data, "t")
-# plot_pco(data, "m")
-plot_pco(data, "t")
+# # plot_QM_N(data, "Q", "m")
+# # plot_QM_N(data, "Q", "t")
+# # plot_QM_N(data, "M", "m")
+# # plot_QM_N(data, "M", "t")
+# plot_Q(data, "r", "m")
+# # plot_Q(data, "r", "t")
+# plot_Q(data, "v", "m")
+# # plot_Q(data, "v", "t")
+# plot_Q(data, "t", "")
+# if REDUCE_DYNAMIC:
+#     plot_Q(data, "a", "m")
+#     # plot_Q(data, "a", "t")
+#     plot_Ma(data, "m")
+#     # plot_Ma(data, "t")
+# # plot_receive_position(data, data_s2e_csv, "m")
+# # plot_determined_position_precision(data, data_s2e_csv, "m")
+# plot_gnss_direction(data, "m")
+# plot_gnss_direction(data, "t")
+# # plot_gnss_direction_animation(data, "m")
+# plot_visible_gnss_sat(data)
+# plot_gnss_id(data, "m")
+# plot_gnss_id(data, "t")
+# # plot_pco(data, "m")
+# plot_pco(data, "t")
 
-if PCV:
-    # plot_pcv_grid(pcc_log_path, "pcv_true")
-    # plot_pcv_grid(s2e_debug + "target_antenna_pcv.csv", "estimated_target_pcv")
+# if PCV:
+#     # plot_pcv_grid(pcc_log_path, "pcv_true")
+#     # plot_pcv_grid(s2e_debug + "target_antenna_pcv.csv", "estimated_target_pcv")
 
-    plot_pcv_by_matplotlib(pcv_log_path, "pcv_true")
-    plot_pcv_by_matplotlib(pcc_log_path, "pcc_true", (-128, 10))
-    plot_pcv_by_matplotlib(s2e_log_dir + "target_antenna_pcv.csv", "estimated_target_pcv")
-    # plot_pcv_by_matplotlib(s2e_log_dir + "_pcv.csv", "estimated_target_pcv")
-    plot_pcv_by_matplotlib(
-        s2e_log_dir + "target_antenna_pcc.csv",
-        "estimated_target_pcc",
-        (-128, 10)
-        # s2e_log_dir + "_pcc.csv",
-        # "estimated_target_pcc",
-        # (-128, 10),
-    )
-    plot_pc_accuracy_by_matplotlib(
-        s2e_log_dir + "target_antenna_pcv.csv",
-        pcv_log_path,
-        "target_pcv_accuracy"
-        # s2e_log_dir + "_pcv.csv",
-        # pcv_log_path,
-        # "target_pcv_accuracy",
-    )
-    plot_pc_accuracy_by_matplotlib(
-        s2e_log_dir + "target_antenna_pcc.csv",
-        pcc_log_path,
-        "target_pcc_accuracy",
-        (-10, 10)
-        # s2e_log_dir + "_pcc.csv",
-        # pcc_log_path,
-        # "target_pcc_accuracy",
-        # (-10, 10),
-    )
+#     plot_pcv_by_matplotlib(pcv_log_path, "pcv_true")
+#     plot_pcv_by_matplotlib(pcc_log_path, "pcc_true", (-128, 10))
+#     plot_pcv_by_matplotlib(s2e_log_dir + "target_antenna_pcv.csv", "estimated_target_pcv")
+#     # plot_pcv_by_matplotlib(s2e_log_dir + "_pcv.csv", "estimated_target_pcv")
+#     plot_pcv_by_matplotlib(
+#         s2e_log_dir + "target_antenna_pcc.csv",
+#         "estimated_target_pcc",
+#         (-128, 10)
+#         # s2e_log_dir + "_pcc.csv",
+#         # "estimated_target_pcc",
+#         # (-128, 10),
+#     )
+#     plot_pc_accuracy_by_matplotlib(
+#         s2e_log_dir + "target_antenna_pcv.csv",
+#         pcv_log_path,
+#         "target_pcv_accuracy"
+#         # s2e_log_dir + "_pcv.csv",
+#         # pcv_log_path,
+#         # "target_pcv_accuracy",
+#     )
+#     plot_pc_accuracy_by_matplotlib(
+#         s2e_log_dir + "target_antenna_pcc.csv",
+#         pcc_log_path,
+#         "target_pcc_accuracy",
+#         (-10, 10)
+#         # s2e_log_dir + "_pcc.csv",
+#         # pcc_log_path,
+#         # "target_pcc_accuracy",
+#         # (-10, 10),
+#     )
+
+# plot_sdcp_residual_by_matplotlib(sdcp_residual_log_path, "sdcp_residual")
+# res_data = pd.read_csv(sdcp_residual_log_path, header=None)
+# plot_residual_by_elevation(res_data)
 
 accuracy_log.to_csv(accuracy_file, sep=",", index=False)
 # 最後に全グラフをまとめてコピー
