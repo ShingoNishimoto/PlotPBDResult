@@ -38,10 +38,11 @@ CALIBRATION = 0
 RECEIVER = 0
 FILTER = 0
 PCV_METHOD = 0
-COST_ACCURACY = 1
+COST_ACCURACY = 0
 PCO = 0
 REL_POS_BIAS = 0
 ORBITS = 0
+PCC_ERR = 1
 
 log_base = copy_base_dir
 separation_files = [
@@ -114,6 +115,10 @@ rel_pos_bias_files = [
     "20230107_195426_after_PCV_RES_w_rel_pos_bias_1cm_y",
 ]
 rel_pos_bias_csv_files = ["accuracies_mean.csv", "accuracies_std.csv"]
+pcc_error_files = [
+    "20230316_212013_wo_calibration",
+    "20230314_201311_true_PCC_wo_calibration",
+]
 
 if SEPARATION:
     log_base += "202301_thesis_separation/"
@@ -163,8 +168,12 @@ elif REL_POS_BIAS:
     # log_base += "202301_thesis_relpos_performance/bias/"
     log_base += "20230130_220120_rel_pos_bias_RES/"
     files = rel_pos_bias_csv_files  # rel_pos_bias_files
-    legend_names = ["radial", "tangential", "normal"]  # matrix size
+    legend_names = ["radial", "tangential", "normal"]
     subplot_names = ["mean", "std"]
+elif PCC_ERR:
+    # log_base += "202301_thesis_PCO/"
+    files = pcc_error_files
+    legend_names = ["w/ error", "w/o error"]
 else:
     print("false input!")
     abort()

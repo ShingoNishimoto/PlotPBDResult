@@ -36,7 +36,7 @@ s2e_csv_log_path = (
     s2e_log_dir + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]
 )
 # ここは適宜修正する．
-copy_base_dir = "/mnt/g/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
+# copy_base_dir = "/mnt/g/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
 copy_base_dir = "G:/マイドライブ/Documents/University/lab/Research/FFGNSS/plot_result/"
 sim_config_path = s2e_log_dir + "readme.txt"
 log_path = s2e_log_dir + "result.csv"
@@ -45,18 +45,18 @@ pcv_log_path = s2e_log_dir + "pcv_1.csv"
 sdcp_residual_log_path = s2e_log_dir + "sdcp_residual.csv"
 
 # # # コピーしたログファイルからグラフ描くとき===========
-log_base = copy_base_dir + "20230306_105605_1km/"  # ここを修正
-# log_base = "D:\Documents\Project\S2E\s2e_pbd\data\logs\logs_230201_182357/"
-sim_config_path = log_base + "readme.txt"
-log_path = log_base + "result.csv"
-s2e_log_dir = log_base
-s2e_csv_log_path = (
-    s2e_log_dir + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]  # バグりそう．
-)
-pcc_log_path = log_base + "pcc_1.csv"
-pcv_log_path = log_base + "pcv_1.csv"
-sdcp_residual_log_path = log_base + "sdcp_residual.csv"
-s2e_debug = log_base
+# log_base = copy_base_dir + "20230306_105605_1km/"  # ここを修正
+# # log_base = "D:\Documents\Project\S2E\s2e_pbd\data\logs\logs_230201_182357/"
+# sim_config_path = log_base + "readme.txt"
+# log_path = log_base + "result.csv"
+# s2e_log_dir = log_base
+# s2e_csv_log_path = (
+#     s2e_log_dir + [file for file in os.listdir(s2e_log_dir) if file.endswith(".csv")][0]  # バグりそう．
+# )
+# pcc_log_path = log_base + "pcc_1.csv"
+# pcv_log_path = log_base + "pcv_1.csv"
+# sdcp_residual_log_path = log_base + "sdcp_residual.csv"
+# s2e_debug = log_base
 # ================================================
 
 # 実行時にメモ残すようにするといいかも
@@ -1652,109 +1652,109 @@ plot_differential_precision(data, dv_precision, "v", "ECI")
 plot_rel_state("r", baseline)
 plot_rel_state("v", relative_v)
 
-# if REDUCE_DYNAMIC:
-#     a_m_precision = calc_a_precision(data, data_s2e_csv, "m", "rtn")
-#     a_t_precision = calc_a_precision(data, data_s2e_csv, "t", "rtn")
-#     plot_precision_rtn("a", "m", a_m_precision)
-#     plot_precision_rtn("a", "t", a_t_precision)
-#     plot_differential_precision(
-#         data, a_t_precision.iloc[:, 0:3] - a_m_precision.iloc[:, 0:3], "a", "RTN"
-#     )
+if REDUCE_DYNAMIC:
+    a_m_precision = calc_a_precision(data, data_s2e_csv, "m", "rtn")
+    a_t_precision = calc_a_precision(data, data_s2e_csv, "t", "rtn")
+    plot_precision_rtn("a", "m", a_m_precision)
+    plot_precision_rtn("a", "t", a_t_precision)
+    plot_differential_precision(
+        data, a_t_precision.iloc[:, 0:3] - a_m_precision.iloc[:, 0:3], "a", "RTN"
+    )
 
 
-# # plot_a(data, "m")
-# # plot_a(data, "t")
-# # plot_a_precision(data, data_s2e_csv, "m", "eci")
-# # plot_a_precision(data, data_s2e_csv, "t", "eci")
-# # plot_a_eci(data, "m")
-# # plot_a_eci(data, "t")
-# # plot_a_dist(data, "m", "eci")
-# # plot_a_dist(data, "t", "eci")
-# # plot_a_dist(data, "m", "rtn")
-# # plot_a_dist(data, "t", "rtn")
-# # plot_a_eci_true(data_s2e_csv, "m")
-# plot_a_rtn_true(data_s2e_csv, "m")
+# plot_a(data, "m")
+# plot_a(data, "t")
+# plot_a_precision(data, data_s2e_csv, "m", "eci")
+# plot_a_precision(data, data_s2e_csv, "t", "eci")
+# plot_a_eci(data, "m")
+# plot_a_eci(data, "t")
+# plot_a_dist(data, "m", "eci")
+# plot_a_dist(data, "t", "eci")
+# plot_a_dist(data, "m", "rtn")
+# plot_a_dist(data, "t", "rtn")
+# plot_a_eci_true(data_s2e_csv, "m")
+plot_a_rtn_true(data_s2e_csv, "m")
 
-# # cdt_plot(data, output_path + "cdt")
-# # cdt_plot(data[data.index % 10 == 9], output_path + "cdt_sparse")
+# cdt_plot(data, output_path + "cdt")
+# cdt_plot(data[data.index % 10 == 9], output_path + "cdt_sparse")
 
-# plot_N_precision(data, "m")
-# plot_N_precision(data, "t")
-# # plot_dN_precision(data)  # 計算コスト高いので必要な時だけにする．
-# plot_N_fix_flag(data, "m")
-# # plot_N_fix_flag(data, "t")
-# # N_plot("m", "t")
-# # N_plot("t", "t")
-# # N_plot("m", "e")
-# # N_plot("t", "e")
+plot_N_precision(data, "m")
+plot_N_precision(data, "t")
+# plot_dN_precision(data)  # 計算コスト高いので必要な時だけにする．
+plot_N_fix_flag(data, "m")
+# plot_N_fix_flag(data, "t")
+# N_plot("m", "t")
+# N_plot("t", "t")
+# N_plot("m", "e")
+# N_plot("t", "e")
 
-# # plot_R(data, "GRAPHIC", "m")
-# # plot_R(data, "GRAPHIC", "t")
-# # plot_R(data, "SDCP", "")
+# plot_R(data, "GRAPHIC", "m")
+# plot_R(data, "GRAPHIC", "t")
+# plot_R(data, "SDCP", "")
 
-# # plot_QM_N(data, "Q", "m")
-# # plot_QM_N(data, "Q", "t")
-# # plot_QM_N(data, "M", "m")
-# # plot_QM_N(data, "M", "t")
-# plot_Q(data, "r", "m")
-# # plot_Q(data, "r", "t")
-# plot_Q(data, "v", "m")
-# # plot_Q(data, "v", "t")
-# plot_Q(data, "t", "")
-# if REDUCE_DYNAMIC:
-#     plot_Q(data, "a", "m")
-#     # plot_Q(data, "a", "t")
-#     plot_Ma(data, "m")
-#     # plot_Ma(data, "t")
-# # plot_receive_position(data, data_s2e_csv, "m")
-# # plot_determined_position_precision(data, data_s2e_csv, "m")
-# plot_gnss_direction(data, "m")
-# plot_gnss_direction(data, "t")
-# # plot_gnss_direction_animation(data, "m")
-# plot_visible_gnss_sat(data)
-# plot_gnss_id(data, "m")
-# plot_gnss_id(data, "t")
-# # plot_pco(data, "m")
-# plot_pco(data, "t")
+# plot_QM_N(data, "Q", "m")
+# plot_QM_N(data, "Q", "t")
+# plot_QM_N(data, "M", "m")
+# plot_QM_N(data, "M", "t")
+plot_Q(data, "r", "m")
+# plot_Q(data, "r", "t")
+plot_Q(data, "v", "m")
+# plot_Q(data, "v", "t")
+plot_Q(data, "t", "")
+if REDUCE_DYNAMIC:
+    plot_Q(data, "a", "m")
+    # plot_Q(data, "a", "t")
+    plot_Ma(data, "m")
+    # plot_Ma(data, "t")
+# plot_receive_position(data, data_s2e_csv, "m")
+# plot_determined_position_precision(data, data_s2e_csv, "m")
+plot_gnss_direction(data, "m")
+plot_gnss_direction(data, "t")
+# plot_gnss_direction_animation(data, "m")
+plot_visible_gnss_sat(data)
+plot_gnss_id(data, "m")
+plot_gnss_id(data, "t")
+# plot_pco(data, "m")
+plot_pco(data, "t")
 
-# if PCV:
-#     # plot_pcv_grid(pcc_log_path, "pcv_true")
-#     # plot_pcv_grid(s2e_debug + "target_antenna_pcv.csv", "estimated_target_pcv")
+if PCV:
+    # plot_pcv_grid(pcc_log_path, "pcv_true")
+    # plot_pcv_grid(s2e_debug + "target_antenna_pcv.csv", "estimated_target_pcv")
 
-#     plot_pcv_by_matplotlib(pcv_log_path, "pcv_true")
-#     plot_pcv_by_matplotlib(pcc_log_path, "pcc_true", (-128, 10))
-#     plot_pcv_by_matplotlib(s2e_log_dir + "target_antenna_pcv.csv", "estimated_target_pcv")
-#     # plot_pcv_by_matplotlib(s2e_log_dir + "_pcv.csv", "estimated_target_pcv")
-#     plot_pcv_by_matplotlib(
-#         s2e_log_dir + "target_antenna_pcc.csv",
-#         "estimated_target_pcc",
-#         (-128, 10)
-#         # s2e_log_dir + "_pcc.csv",
-#         # "estimated_target_pcc",
-#         # (-128, 10),
-#     )
-#     plot_pc_accuracy_by_matplotlib(
-#         s2e_log_dir + "target_antenna_pcv.csv",
-#         pcv_log_path,
-#         "target_pcv_accuracy"
-#         # s2e_log_dir + "_pcv.csv",
-#         # pcv_log_path,
-#         # "target_pcv_accuracy",
-#     )
-#     plot_pc_accuracy_by_matplotlib(
-#         s2e_log_dir + "target_antenna_pcc.csv",
-#         pcc_log_path,
-#         "target_pcc_accuracy",
-#         (-10, 10)
-#         # s2e_log_dir + "_pcc.csv",
-#         # pcc_log_path,
-#         # "target_pcc_accuracy",
-#         # (-10, 10),
-#     )
+    plot_pcv_by_matplotlib(pcv_log_path, "pcv_true")
+    plot_pcv_by_matplotlib(pcc_log_path, "pcc_true", (-128, 10))
+    plot_pcv_by_matplotlib(s2e_log_dir + "target_antenna_pcv.csv", "estimated_target_pcv")
+    # plot_pcv_by_matplotlib(s2e_log_dir + "_pcv.csv", "estimated_target_pcv")
+    plot_pcv_by_matplotlib(
+        s2e_log_dir + "target_antenna_pcc.csv",
+        "estimated_target_pcc",
+        (-128, 10)
+        # s2e_log_dir + "_pcc.csv",
+        # "estimated_target_pcc",
+        # (-128, 10),
+    )
+    plot_pc_accuracy_by_matplotlib(
+        s2e_log_dir + "target_antenna_pcv.csv",
+        pcv_log_path,
+        "target_pcv_accuracy"
+        # s2e_log_dir + "_pcv.csv",
+        # pcv_log_path,
+        # "target_pcv_accuracy",
+    )
+    plot_pc_accuracy_by_matplotlib(
+        s2e_log_dir + "target_antenna_pcc.csv",
+        pcc_log_path,
+        "target_pcc_accuracy",
+        (-10, 10)
+        # s2e_log_dir + "_pcc.csv",
+        # pcc_log_path,
+        # "target_pcc_accuracy",
+        # (-10, 10),
+    )
 
-# plot_sdcp_residual_by_matplotlib(sdcp_residual_log_path, "sdcp_residual")
-# res_data = pd.read_csv(sdcp_residual_log_path, header=None)
-# plot_residual_by_elevation(res_data)
+plot_sdcp_residual_by_matplotlib(sdcp_residual_log_path, "sdcp_residual")
+res_data = pd.read_csv(sdcp_residual_log_path, header=None)
+plot_residual_by_elevation(res_data)
 
 accuracy_log.to_csv(accuracy_file, sep=",", index=False)
 # 最後に全グラフをまとめてコピー
